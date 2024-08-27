@@ -101,7 +101,12 @@ class ChaincraftNode:
         message = new_object.to_json()
         message_hash = self.broadcast(message)
         self.db[message_hash] = message
+        self.db_sync()
         return message_hash, new_object
+
+    def db_sync(self):
+        self.db.close()
+        self.db = dbm.open(self.db_name, 'c')
 
     def close(self):
         self.db.close()
