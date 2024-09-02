@@ -3,7 +3,7 @@ Educational Python library for Blockchains
 
 ## Roadmap
 
-- [ ] Gossip
+- [x] Gossip
 - [ ] Discovery
 - [ ] Mandatory and Optional Fields and Types
 - [ ] Linked Fields (Chaining)
