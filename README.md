@@ -4,7 +4,7 @@ Educational Python library for Blockchains
 ## Roadmap
 
 - [x] Gossip: Sharing JSON messages between the nodes.
-- [ ] Permanent storage: the JSON messages are stored. HERE
+- [ ] Permanent storage: the JSON messages are stored in key/value. HERE
 - [ ] Discovery: Discovery of new nodes.
 - [ ] Mandatory and Optional Fields and Types: Some format for JSON.
 - [ ] Linked Fields (Chaining): 
