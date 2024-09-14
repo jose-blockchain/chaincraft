@@ -10,7 +10,7 @@ import threading
 import time
 import zlib
 import hashlib
-import dbm
+import dbm.ndbm
 import os
 from dataclasses import dataclass, asdict
 from typing import List, Tuple, Dict, Union
@@ -48,7 +48,7 @@ class ChaincraftNode:
         else:
             if reset_db and os.path.exists(self.db_name):
                 os.remove(self.db_name)
-            self.db: Union[dbm._Database, Dict[str, str]] = dbm.open(self.db_name, 'c')
+            self.db: Union[dbm.ndbm._gdbm, Dict[str, str]] = dbm.ndbm.open(self.db_name, 'c')
 
         self.socket = None
         self.is_running = False
@@ -167,4 +167,4 @@ class ChaincraftNode:
     def db_sync(self):
         if self.persistent:
             self.db.close()
-            self.db = dbm.open(self.db_name, 'c')
+            self.db = dbm.ndbm.open(self.db_name, 'c')

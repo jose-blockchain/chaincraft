@@ -2,7 +2,7 @@
 import unittest
 import time
 import socket
-import dbm
+import dbm.ndbm
 from chaincraft import ChaincraftNode
 
 class TestChaincraftNode(unittest.TestCase):
@@ -74,8 +74,8 @@ class TestChaincraftNode(unittest.TestCase):
         self.assertIsInstance(node.db, dict)
 
     def test_use_dbm_storage(self):
-        node = self.create_node(persistent=True)
-        self.assertIsInstance(node.db, dbm.open("__test__.db", 'c').__class__)
+        node = self.create_node(persistent=True, reset_db=True)
+        self.assertIsInstance(node.db, dbm.ndbm.open("__test__.db", 'c').__class__)
 
     def test_reset_db(self):
         node = self.create_node(persistent=True, reset_db=True)
