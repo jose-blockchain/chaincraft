@@ -28,7 +28,7 @@ class SharedObject:
         return cls(**json.loads(json_str))
 
 class ChaincraftNode:
-    def __init__(self, max_peers=3, reset_db=False, use_dict=True, use_fixed_address=False):
+    def __init__(self, max_peers=3, reset_db=False, persistent=False, use_fixed_address=False):
         self.max_peers = max_peers
         self.peers: List[Tuple[str, int]] = []
         self.use_fixed_address = use_fixed_address
@@ -41,9 +41,9 @@ class ChaincraftNode:
             self.port = random.randint(5000, 9000)
 
         self.db_name = f"node_{self.port}.db"
-        self.use_dict = use_dict
+        self.persistent = persistent
 
-        if use_dict:
+        if not persistent:
             self.db: Dict[str, str] = {}
         else:
             if reset_db and os.path.exists(self.db_name):
@@ -81,7 +81,7 @@ class ChaincraftNode:
         self.is_running = False
         if self.socket:
             self.socket.close()
-        if not self.use_dict:
+        if self.persistent:
             self.db.close()
 
     def listen_for_messages(self):
@@ -104,7 +104,7 @@ class ChaincraftNode:
                 if self.db:
                     for key in self.db.keys():
                         object_to_share = self.db[key]
-                        if not self.use_dict:
+                        if self.persistent:
                             object_to_share = object_to_share.decode()
                         self.broadcast(object_to_share)
                 time.sleep(self.gossip_interval)
@@ -158,13 +158,13 @@ class ChaincraftNode:
         message = new_object.to_json()
         message_hash = self.broadcast(message)
         self.db[message_hash] = message
-        if not self.use_dict:
+        if self.persistent:
             self.db_sync()
         if self.debug:
             print(f"Node {self.port}: Created new object with hash {message_hash}")
         return message_hash, new_object
 
     def db_sync(self):
-        if not self.use_dict:
+        if self.persistent:
             self.db.close()
             self.db = dbm.open(self.db_name, 'c')

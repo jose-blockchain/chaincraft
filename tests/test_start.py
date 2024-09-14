@@ -55,7 +55,7 @@ class TestChaincraftNode(unittest.TestCase):
         self.assertEqual(len(node.peers), 1)
 
     def test_create_shared_object(self):
-        node = self.create_node(use_dict=True)
+        node = self.create_node(persistent=False)
         message_hash, shared_object = node.create_shared_object("Test data")
         self.assertIn(message_hash, node.db)
         self.assertEqual(shared_object.data, "Test data")
@@ -70,20 +70,20 @@ class TestChaincraftNode(unittest.TestCase):
             node2.start()
 
     def test_use_dict_storage(self):
-        node = self.create_node(use_dict=True)
+        node = self.create_node(persistent=False)
         self.assertIsInstance(node.db, dict)
 
     def test_use_dbm_storage(self):
-        node = self.create_node(use_dict=False)
+        node = self.create_node(persistent=True)
         self.assertIsInstance(node.db, dbm.open("__test__.db", 'c').__class__)
 
     def test_reset_db(self):
-        node = self.create_node(use_dict=False, reset_db=True)
+        node = self.create_node(persistent=True, reset_db=True)
         self.assertEqual(len(node.db), 0)
 
     def test_gossip(self):
-        node1 = self.create_node(use_dict=True)
-        node2 = self.create_node(use_dict=True)
+        node1 = self.create_node(persistent=False)
+        node2 = self.create_node(persistent=False)
         node1.connect_to_peer(node2.host, node2.port)
         node2.connect_to_peer(node1.host, node1.port)
 
