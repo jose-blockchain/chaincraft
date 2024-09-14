@@ -1,6 +1,3 @@
-##############################################
-# Chaincraft: A simple blockchain simulator
-##############################################
 # chaincraft.py
 
 import json
@@ -12,25 +9,29 @@ import zlib
 import hashlib
 import dbm.ndbm
 import os
-from dataclasses import dataclass, asdict
-from typing import List, Tuple, Dict, Union
+from dataclasses import dataclass
+from typing import Any, List, Tuple, Dict, Union
+
 
 @dataclass
 class SharedObject:
-    data: str
-    timestamp: float
+    data: Any
+
+    PEER_DISCOVERY = "PEER_DISCOVERY"
 
     def to_json(self):
-        return json.dumps(asdict(self))
+        return json.dumps(self.data)
 
     @classmethod
     def from_json(cls, json_str):
-        return cls(**json.loads(json_str))
+        return cls(data=json.loads(json_str))
+    
 
 class ChaincraftNode:
-    def __init__(self, max_peers=3, reset_db=False, persistent=False, use_fixed_address=False):
+    PEERS = "PEERS"
+
+    def __init__(self, max_peers=5, reset_db=False, persistent=False, use_fixed_address=False, debug=False):
         self.max_peers = max_peers
-        self.peers: List[Tuple[str, int]] = []
         self.use_fixed_address = use_fixed_address
 
         if use_fixed_address:
@@ -48,12 +49,14 @@ class ChaincraftNode:
         else:
             if reset_db and os.path.exists(self.db_name):
                 os.remove(self.db_name)
-            self.db: Union[dbm.ndbm._gdbm, Dict[str, str]] = dbm.ndbm.open(self.db_name, 'c')
+            self.db: Union[dbm.ndbm._dbm, Dict[str, str]] = dbm.ndbm.open(self.db_name, 'c')
+
+        self.peers: List[Tuple[str, int]] = self.load_peers()
 
         self.socket = None
         self.is_running = False
         self.gossip_interval = 0.5 # seconds
-        self.debug = True
+        self.debug = debug
 
     def start(self):
         if self.is_running:
@@ -102,7 +105,9 @@ class ChaincraftNode:
         while self.is_running:
             try:
                 if self.db:
-                    for key in self.db.keys():
+                    # Create a list of keys to iterate over
+                    keys_to_share = [key for key in self.db.keys() if key != self.PEERS.encode()]
+                    for key in keys_to_share:
                         object_to_share = self.db[key]
                         if self.persistent:
                             object_to_share = object_to_share.decode()
@@ -111,10 +116,21 @@ class ChaincraftNode:
             except Exception as e:
                 print(f"Error in gossip: {e}")
 
-    def connect_to_peer(self, host, port):
-        if len(self.peers) < self.max_peers and (host, port) not in self.peers:
+    def connect_to_peer(self, host, port, discovery=False):
+        if (host, port) != (self.host, self.port) and (host, port) not in self.peers:
+            if len(self.peers) >= self.max_peers:
+                replaced_peer = self.peers.pop()
+                print(f"Max peers reached. Replacing peer {replaced_peer[0]}:{replaced_peer[1]} with {host}:{port}")
             self.peers.append((host, port))
+            self.save_peers()
             print(f"Connected to peer {host}:{port}")
+            if discovery:
+                self.send_peer_discovery(host, port)
+
+    def send_peer_discovery(self, host, port):
+        discovery_message = json.dumps({SharedObject.PEER_DISCOVERY: f"{self.host}:{self.port}"})
+        compressed_message = self.compress_message(discovery_message)
+        self.socket.sendto(compressed_message, (host, port))
 
     def compress_message(self, message: str) -> bytes:
         return zlib.compress(message.encode())
@@ -128,6 +144,7 @@ class ChaincraftNode:
     def broadcast(self, message: str):
         compressed_message = self.compress_message(message)
         message_hash = self.hash_message(compressed_message)
+        failed_peers = []
         for peer in self.peers:
             try:
                 self.socket.sendto(compressed_message, peer)
@@ -136,16 +153,25 @@ class ChaincraftNode:
             except Exception as e:
                 if self.debug:
                     print(f"Node {self.port}: Failed to send message to peer {peer}. Error: {e}")
+                failed_peers.append(peer)
+        for peer in failed_peers:
+            self.peers.remove(peer)
+            self.save_peers()
         return message_hash
 
     def handle_message(self, message, message_hash, addr):
         try:
-            shared_object = SharedObject.from_json(message)
             if message_hash not in self.db:
                 self.db[message_hash] = message
                 if self.debug:
-                    print(f"Node {self.port}: Received new object with hash {message_hash}")
+                    print(f"Node {self.port}: Received new object with hash {message_hash} Object: {message}")
                 self.broadcast(message)
+
+                shared_object = SharedObject.from_json(message)
+                if isinstance(shared_object.data, dict) and SharedObject.PEER_DISCOVERY in shared_object.data:
+                    peer_address = shared_object.data[SharedObject.PEER_DISCOVERY]
+                    host, port = peer_address.split(":")
+                    self.connect_to_peer(host, int(port), discovery=True)
             else:
                 if self.debug:
                     print(f"Node {self.port}: Received duplicate object with hash {message_hash}")
@@ -154,7 +180,7 @@ class ChaincraftNode:
                 print(f"Node {self.port}: Received invalid message from {addr}")
 
     def create_shared_object(self, data):
-        new_object = SharedObject(data=data, timestamp=time.time())
+        new_object = SharedObject(data=data)
         message = new_object.to_json()
         message_hash = self.broadcast(message)
         self.db[message_hash] = message
@@ -168,3 +194,14 @@ class ChaincraftNode:
         if self.persistent:
             self.db.close()
             self.db = dbm.ndbm.open(self.db_name, 'c')
+
+    def save_peers(self):
+        if self.persistent:
+            self.db[self.PEERS.encode()] = json.dumps(self.peers).encode()
+            self.db_sync()
+
+    def load_peers(self) -> List[Tuple[str, int]]:
+        if self.persistent and self.PEERS.encode() in self.db:
+            return json.loads(self.db[self.PEERS.encode()].decode())
+        else:
+            return []
