@@ -1,3 +1,6 @@
+##############################################
+# Chaincraft: A simple blockchain simulator
+##############################################
 # chaincraft.py
 
 import json
@@ -51,7 +54,6 @@ class ChaincraftNode:
         self.is_running = False
         self.gossip_interval = 0.5 # seconds
         self.debug = True
-        self.catch_up_interval = 5
 
     def start(self):
         if self.is_running:
@@ -74,19 +76,6 @@ class ChaincraftNode:
         self.is_running = True
         threading.Thread(target=self.listen_for_messages, daemon=True).start()
         threading.Thread(target=self.gossip, daemon=True).start()
-        threading.Thread(target=self.catch_up_loop, daemon=True).start()
-
-    def catch_up_loop(self):
-        while self.is_running:
-            self.request_catch_up()
-            time.sleep(self.catch_up_interval)
-
-    def request_catch_up(self):
-        if not self.peers:
-            return
-        peer = random.choice(self.peers)
-        catch_up_message = json.dumps({"type": "catch_up_request", "known_hashes": list(self.db.keys())})
-        self.socket.sendto(self.compress_message(catch_up_message), peer)
 
     def close(self):
         self.is_running = False
@@ -151,30 +140,18 @@ class ChaincraftNode:
 
     def handle_message(self, message, message_hash, addr):
         try:
-            data = json.loads(message)
-            if isinstance(data, dict) and data.get("type") == "catch_up_request":
-                self.handle_catch_up_request(data, addr)
+            shared_object = SharedObject.from_json(message)
+            if message_hash not in self.db:
+                self.db[message_hash] = message
+                if self.debug:
+                    print(f"Node {self.port}: Received new object with hash {message_hash}")
+                self.broadcast(message)
             else:
-                shared_object = SharedObject.from_json(message)
-                if message_hash not in self.db:
-                    self.db[message_hash] = message
-                    if self.debug:
-                        print(f"Node {self.port}: Received new object with hash {message_hash}")
-                    self.broadcast(message)
-                else:
-                    if self.debug:
-                        print(f"Node {self.port}: Received duplicate object with hash {message_hash}")
+                if self.debug:
+                    print(f"Node {self.port}: Received duplicate object with hash {message_hash}")
         except json.JSONDecodeError:
             if self.debug:
                 print(f"Node {self.port}: Received invalid message from {addr}")
-
-    def handle_catch_up_request(self, data, addr):
-        known_hashes = set(data["known_hashes"])
-        missing_objects = {k: v for k, v in self.db.items() if k not in known_hashes}
-        for obj in missing_objects.values():
-            self.socket.sendto(self.compress_message(obj), addr)
-        if self.debug:
-            print(f"Node {self.port}: Sent {len(missing_objects)} objects to {addr} for catch-up")
 
     def create_shared_object(self, data):
         new_object = SharedObject(data=data, timestamp=time.time())
