@@ -19,7 +19,7 @@ Educational Python library for Blockchains
 
 ## `SharedObject`
 
-- `isValid(SharedMessage) : boolean`
+- `isValid(SharedMessage) : boolean`: a message `m` if valid is `all( isValid(m ) for o in sharedObject)`
 - `addMessage(ShareMessage) : void`
 - `isMerkelized()/hasDigest() : boolean`
 - `getDigest() : Hash`
