@@ -12,12 +12,22 @@ Educational Python library for Blockchains
 - [ ] Merkle Patricia Trie: quickly read and update a large chain of messages. HERE
 - [ ] Primitives (RSA, ECSA, VDF, VRF, Signature Aggregation, LSH)
 
+## `SharedMessage`
+
+- `prevalidation() : boolean` with mandatory/optional fields and types.
+- 
+
 ## `SharedObject`
 
 - `isValid(SharedMessage) : boolean`
 - `addMessage(ShareMessage) : void`
 - `isMerkelized()/hasDigest() : boolean`
 - `getDigest() : Hash`
+
+## Design Principles
+
+- Blockchain Trilemma: Security, Scalability and Decentralization (Tradeoff)
+- Time Syncronization: Totally Async, Eventually Sync, Bounded Sync time (t + delta, where delta is 15 seconds for example).
 
 ## Run tests
 
