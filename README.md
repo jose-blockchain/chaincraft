@@ -6,8 +6,8 @@ Educational Python library for Blockchains
 - [x] Gossip: Sharing JSON messages between the nodes (`SharedMessage`).
 - [x] Permanent storage: the JSON messages are stored in key/value.
 - [x] Discovery: Global or Local Discovery of new nodes. ALMOST DONE
-- [ ] Mandatory and Optional Fields and Types: Some format for JSON, prevalidation.
-- [ ] `SharedObject` list that is updated by `SharedMessages` (inside can go Linked Fields Chaining). 
+- [ ] Mandatory and Optional Fields and Types: Some format for JSON, prevalidation. Ban peers sending invalid format.
+- [ ] `SharedObject` list that is updated by `SharedMessages` (inside can go Linked Fields Chaining). Ban peers sending invalid messages.
 - [ ] Primitives (RSA, ECSA, VDF, VRF, Signature Aggregation, LSH, Quantum-resistant Primitives)
 - [ ] Indexing (MongoDB-like)
 - [ ] Merklelized Storage: to know quicker when some a SharedObject is broken or which index for a linear array of messages/blocks.
