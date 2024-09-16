@@ -37,7 +37,12 @@ Educational Python library for Blockchains
 - Time Syncronization (Tradeoff): having better synced time has pros and cons.
     - Totally Asynced (no validation of timestamps)
     - Eventually Synced (timestamps are used for some things, but you accept timestamp far away in time)
-    - Bounded Synced Time (t +/- delta are only valid messages, where delta is 15 seconds for example).
+    - Bounded Synced Time (`timestamp +/- delta` are the only valid messages, where delta is 15 seconds for example).
+- Identity and Anon User (Tradeoff):
+    - Totally Anon Users.
+    - Anon Users w/Resources (think Proof-of-Work without signatures)
+    - Identified with Signatures.
+    - Signature plus protocol to accept the new identity (think adding a validator to Proof-of-Stake).
 
 ## Run tests
 
