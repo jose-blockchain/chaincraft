@@ -16,7 +16,7 @@ Educational Python library for Blockchains
 
 - `prevalidation(message) : boolean` with mandatory/optional fields and types.
 - Test `isValid(message)` for all `SharedObjects` like Ledgers or Mempools.
-- Do update for all shared object with `addMessage(message)`.
+- Do update for all shared objects with `addMessage(message)`.
 
 ## `SharedObject`
 
@@ -34,8 +34,8 @@ Educational Python library for Blockchains
     - Security
     - Scalability
     - Decentralization
-- Time Syncronization (Tradeoff): having better synced time has pros and cons.
-    - Totally Asynced (no validation of timestamps)
+- Time Synchronization (Tradeoff): having better synced time has pros and cons.
+    - Totally Async (no validation of timestamps)
     - Eventually Synced (timestamps are used for some things, but you accept timestamp far away in time)
     - Bounded Synced Time (`timestamp +/- delta` are the only valid messages, where delta is 15 seconds for example).
 - Identity and Anon User (Tradeoff):
