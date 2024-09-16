@@ -28,6 +28,13 @@ Educational Python library for Blockchains
 - `gossipObject(peer,myDigest) : List(SharedMessage)` to sync the SharedObject locally, requesting more messages.
 - Local `SharedObject` gossip using `hasDigest()`, `getDigest()`, `gossipObject()` and `isValidDigest()`. 
 
+# Example (Bitcoin)
+
+- The shared object are `Ledger` and `Mempool`.
+- A bitcoin transaction `tx` is only a transfer for simplicity.
+- Example: `Ledger.isValid(tx)` is `true` if the sender has enough balance in account to do the transfer.
+- Example `Mempool.addMessage(tx)` will do a sorted insert into the priority queue of `Mempool` based on the fee that the sender is paying, higher fees gets more priority to be included in the next block of transactions.
+
 ## Design Principles for Prototyping Blockchains and Protocols
 
 - Blockchain Trilemma (Tradeoff):
