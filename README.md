@@ -26,7 +26,10 @@ Educational Python library for Blockchains
 
 ## Design Principles
 
-- Blockchain Trilemma: Security, Scalability and Decentralization (Tradeoff)
+- Blockchain Trilemma (Tradeoff):
+    - Security
+    - Scalability
+    - Decentralization
 - Time Syncronization: Totally Async, Eventually Sync, Bounded Sync time (t + delta, where delta is 15 seconds for example).
 
 ## Run tests
