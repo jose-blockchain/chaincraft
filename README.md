@@ -8,9 +8,9 @@ Educational Python library for Blockchains
 - [x] Discovery: Global or Local Discovery of new nodes. ALMOST DONE
 - [ ] Mandatory and Optional Fields and Types: Some format for JSON, prevalidation.
 - [ ] `SharedObject` list that is updated by `SharedMessages` (inside can go Linked Fields Chaining). 
-- [ ] Indexing (MongoDB-like)
-- [ ] Merkle Patricia Trie: quickly read and update a large chain of messages. HERE
 - [ ] Primitives (RSA, ECSA, VDF, VRF, Signature Aggregation, LSH)
+- [ ] Indexing (MongoDB-like)
+- [ ] Merklelized Storage: to know quicker when some a SharedObject is broken or which index for a linear array of messages/blocks.
 
 ## `SharedMessage`
 
