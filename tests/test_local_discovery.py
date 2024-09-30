@@ -1,4 +1,4 @@
-# test_local_discovery.py
+# tests/test_local_discovery.py
 import unittest
 import time
 from chaincraft import ChaincraftNode

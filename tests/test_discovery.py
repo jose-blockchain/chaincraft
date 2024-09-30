@@ -1,4 +1,4 @@
-# test_discovery.py
+# tests/test_discovery.py
 import unittest
 import time, random
 from chaincraft import ChaincraftNode
