@@ -90,7 +90,7 @@ class ChaincraftNode:
     def listen_for_messages(self):
         while self.is_running:
             try:
-                compressed_data, addr = self.socket.recvfrom(1024)
+                compressed_data, addr = self.socket.recvfrom(1500)
                 message_hash = self.hash_message(compressed_data)
                 if message_hash not in self.db:
                     message = self.decompress_message(compressed_data)
