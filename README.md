@@ -53,6 +53,20 @@ Educational Python library for Blockchains
 
 ## Run tests
 
+Run all tests:
+
 ```bash
 python -m unittest discover -v -s tests
+```
+
+A single testfile:
+
+```bash
+python -m unittest tests/test_start.py
+```
+
+To run a single test inside a testfile:
+
+```bash
+python -m unittest -v -k test_local_discovery_enabled tests/test_local_discovery.py
 ```
