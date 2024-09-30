@@ -18,6 +18,8 @@ class SharedObject:
     data: Any
 
     PEER_DISCOVERY = "PEER_DISCOVERY"
+    REQUEST_LOCAL_PEERS = "REQUEST_LOCAL_PEERS"
+    LOCAL_PEERS = "LOCAL_PEERS"
 
     def to_json(self):
         return json.dumps(self.data)
@@ -30,7 +32,7 @@ class SharedObject:
 class ChaincraftNode:
     PEERS = "PEERS"
 
-    def __init__(self, max_peers=5, reset_db=False, persistent=False, use_fixed_address=False, debug=False):
+    def __init__(self, max_peers=5, reset_db=False, persistent=False, use_fixed_address=False, debug=False, local_discovery=True):
         self.max_peers = max_peers
         self.use_fixed_address = use_fixed_address
 
@@ -57,6 +59,8 @@ class ChaincraftNode:
         self.is_running = False
         self.gossip_interval = 0.5 # seconds
         self.debug = debug
+        self.local_discovery = local_discovery
+        self.waiting_local_peer = {}
 
     def start(self):
         if self.is_running:
@@ -132,6 +136,16 @@ class ChaincraftNode:
         compressed_message = self.compress_message(discovery_message)
         self.socket.sendto(compressed_message, (host, port))
 
+    def connect_to_peer_locally(self, host, port):
+        if (host, port) != (self.host, self.port):
+            self.waiting_local_peer[(host, port)] = True
+            self.send_local_peer_request(host, port)
+
+    def send_local_peer_request(self, host, port):
+        request_message = json.dumps({SharedObject.REQUEST_LOCAL_PEERS: f"{self.host}:{self.port}"})
+        compressed_message = self.compress_message(request_message)
+        self.socket.sendto(compressed_message, (host, port))
+
     def compress_message(self, message: str) -> bytes:
         return zlib.compress(message.encode())
 
@@ -168,10 +182,28 @@ class ChaincraftNode:
                 self.broadcast(message)
 
                 shared_object = SharedObject.from_json(message)
-                if isinstance(shared_object.data, dict) and SharedObject.PEER_DISCOVERY in shared_object.data:
-                    peer_address = shared_object.data[SharedObject.PEER_DISCOVERY]
-                    host, port = peer_address.split(":")
-                    self.connect_to_peer(host, int(port), discovery=True)
+                if isinstance(shared_object.data, dict):
+                    if SharedObject.PEER_DISCOVERY in shared_object.data:
+                        peer_address = shared_object.data[SharedObject.PEER_DISCOVERY]
+                        host, port = peer_address.split(":")
+                        self.connect_to_peer(host, int(port), discovery=True)
+                    elif SharedObject.REQUEST_LOCAL_PEERS in shared_object.data and self.local_discovery:
+                        requesting_peer = shared_object.data[SharedObject.REQUEST_LOCAL_PEERS]
+                        host, port = requesting_peer.split(":")
+                        local_peer_list = [f"{peer[0]}:{peer[1]}" for peer in self.peers]
+                        response_object = SharedObject(data={SharedObject.LOCAL_PEERS: local_peer_list})
+                        response_message = response_object.to_json()
+                        compressed_message = self.compress_message(response_message)
+                        self.socket.sendto(compressed_message, (host, int(port)))
+                    elif SharedObject.LOCAL_PEERS in shared_object.data:
+                        peer = addr[0], addr[1]
+                        if peer in self.waiting_local_peer and self.waiting_local_peer[peer]:
+                            local_peers = shared_object.data[SharedObject.LOCAL_PEERS]
+                            for local_peer in local_peers:
+                                host, port = local_peer.split(":")
+                                self.connect_to_peer(host, int(port))
+                            self.waiting_local_peer[peer] = False
+                            del self.waiting_local_peer[peer]
             else:
                 if self.debug:
                     print(f"Node {self.port}: Received duplicate object with hash {message_hash}")
