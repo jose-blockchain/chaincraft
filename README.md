@@ -51,6 +51,22 @@ Educational Python library for Blockchains
     - Anon Users w/Resources (think Proof-of-Work without signatures)
     - Identified with Signatures.
     - Signature plus protocol to accept the new identity (think adding a validator to Proof-of-Stake).
+- Levels of Data Synchronization:
+    - Torrent: very liberal and concurrent.
+    - Blockchain: very restrictive and sequential.
+    - Middle-ground: decentralized app (non-financial)
+        - Eventually consistent.
+        - All data is validated.
+        - Example1: Decentralized Messenger (santi).
+        - Example2: Decentralized AI
+
+## Brainstorming in DeAI
+
+- Prededetemined Training Sample Blocks List: B1, B2, ..., Bn..
+- Eventually: block Bi is processed.
+- Is Okey if Bn is processed and validated and distributed and B(n-1) is not yet available.
+- Alternative: a node can propose Bn if is missing, Bn-1 is known, or wants to replace existing Bn.
+
 
 ## Run tests
 
