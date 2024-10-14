@@ -45,6 +45,7 @@ Educational Python library for Blockchains
     - Totally Async (no validation of timestamps)
     - Eventually Synced (timestamps are used for some things, but you accept timestamp far away in time)
     - Bounded Synced Time (`timestamp +/- delta` are the only valid messages, where delta is 15 seconds for example).
+    - Totally Time-synced, like depend on time being totally synced.
 - Identity and Anon User (Tradeoff):
     - Totally Anon Users.
     - Anon Users w/Resources (think Proof-of-Work without signatures)
