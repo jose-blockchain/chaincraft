@@ -21,7 +21,7 @@ Educational Python library for Blockchains
 ## `SharedObject`
 
 - `isValid(SharedMessage) : boolean`: a message `m` if valid is `all( isValid(m ) for o in sharedObject)`
-- `addMessage(ShareMessage) : void`
+- `addMessage(ShareMessage) : void`: is "added" to all ShredObjects if is valid like `[o.addMessage(m) for o in sharedObject]`
 - `isMerkelized()/hasDigest() : boolean`
 - `getDigest() : SharedMessage`
 - `isValidDigest() : boolean` to check if the digest for the shared object is valid.
