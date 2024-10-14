@@ -54,11 +54,11 @@ class TestChaincraftNode(unittest.TestCase):
         node.connect_to_peer('127.0.0.1', 8001)
         self.assertEqual(len(node.peers), 1)
 
-    def test_create_shared_object(self):
+    def test_create_shared_message(self):
         node = self.create_node(persistent=False)
-        message_hash, shared_object = node.create_shared_object("Test data")
+        message_hash, shared_message = node.create_shared_message("Test data")
         self.assertIn(message_hash, node.db)
-        self.assertEqual(shared_object.data, "Test data")
+        self.assertEqual(shared_message.data, "Test data")
 
     def test_fixed_address_conflict(self):
         node1 = self.create_node(use_fixed_address=True)
@@ -90,7 +90,7 @@ class TestChaincraftNode(unittest.TestCase):
         node1.start()
         node2.start()
 
-        message_hash, _ = node1.create_shared_object("Test gossip")
+        message_hash, _ = node1.create_shared_message("Test gossip")
         time.sleep(6)  # Wait for gossip to propagate
 
         self.assertIn(message_hash, node2.db)

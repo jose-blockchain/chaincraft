@@ -23,7 +23,7 @@ def wait_for_propagation(nodes, expected_count, timeout=30):
     start_time = time.time()
     while time.time() - start_time < timeout:
         counts = [len(node.db) for node in nodes]
-        print(f"Current object counts: {counts}")
+        print(f"Current message counts: {counts}")
         if all(count == expected_count for count in counts):
             return True
         time.sleep(0.5)
@@ -48,30 +48,30 @@ class TestChaincraftNetwork(unittest.TestCase):
 
     def test_object_creation_and_propagation(self):
         source_node = random.choice(self.nodes)
-        message_hash, _ = source_node.create_shared_object("Test object")
+        message_hash, _ = source_node.create_shared_message("Test message")
 
         self.assertTrue(wait_for_propagation(self.nodes, 1))
 
         for node in self.nodes:
             self.assertIn(message_hash, node.db, f"Object not found in node {node.port}")
-            stored_object = node.db[message_hash]
-            self.assertIn("Test object", stored_object)
+            stored_message = node.db[message_hash]
+            self.assertIn("Test message", stored_message)
 
     def test_multiple_object_creation(self):
         for i in range(3):
             random_node = random.choice(self.nodes)
-            random_node.create_shared_object(f"Object {i}")
-            time.sleep(1)  # Wait a bit between object creations
+            random_node.create_shared_message(f"Object {i}")
+            time.sleep(1)  # Wait a bit between message creations
 
         self.assertTrue(wait_for_propagation(self.nodes, 3))
 
         for node in self.nodes:
-            self.assertEqual(len(node.db), 3, f"Node {node.port} has incorrect number of objects")
+            self.assertEqual(len(node.db), 3, f"Node {node.port} has incorrect number of messages")
 
     def test_network_resilience(self):
-        # Create initial object
+        # Create initial message
         initial_node = self.nodes[0]
-        initial_hash, _ = initial_node.create_shared_object("Initial object")
+        initial_hash, _ = initial_node.create_shared_message("Initial message")
 
         self.assertTrue(wait_for_propagation(self.nodes, 1))
 
@@ -79,9 +79,9 @@ class TestChaincraftNetwork(unittest.TestCase):
         failed_node = self.nodes.pop()
         failed_node.close()
 
-        # Create new object
+        # Create new message
         new_node = random.choice(self.nodes)
-        new_hash, _ = new_node.create_shared_object("New object")
+        new_hash, _ = new_node.create_shared_message("New message")
 
         self.assertTrue(wait_for_propagation(self.nodes, 2))
 
@@ -97,8 +97,8 @@ class TestChaincraftNetwork(unittest.TestCase):
         self.assertTrue(wait_for_propagation(self.nodes, 2, timeout=60))
 
         for node in self.nodes:
-            self.assertIn(initial_hash, node.db, f"Initial object not found in node {node.port}")
-            self.assertIn(new_hash, node.db, f"New object not found in node {node.port}")
+            self.assertIn(initial_hash, node.db, f"Initial message not found in node {node.port}")
+            self.assertIn(new_hash, node.db, f"New message not found in node {node.port}")
 
 if __name__ == '__main__':
     unittest.main()
