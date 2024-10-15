@@ -154,7 +154,7 @@ class TestMessageTypes(unittest.TestCase):
                     "sender": str,
                     "recipient": str,
                     "amount": float,
-                    "signature": "hash"
+                    "signature": "signature"
                 },
                 "optional_fields": {
                     "timestamp": int
@@ -180,14 +180,14 @@ class TestMessageTypes(unittest.TestCase):
             "sender": "Alice",
             "recipient": "Bob",
             "amount": 10.0,
-            "signature": "a1b2c3d4e5f6g7h8i9j0"
+            "signature": "0x1c7bfeb48e703f73e2a3d4e8916f486ded1d594c12b42e9fcd2f1463ca4f0c2e7cb497a29b7b5c7d1c4e8f8c8d1b1a9d1c3f2e7c4b5a7d6c3e9f8d7c6b5a4d3e2f1c"
         }
         transaction2 = {
             "message_type": "Transaction",
             "sender": "Bob",
             "recipient": "Charlie",
             "amount": 5.0,
-            "signature": "k1l2m3n4o5p6q7r8s9t0"
+            "signature": "0x2d4e6f8c9b7a5d3c1e9f7c5b3a1d8e6f4c2b9a7d5c3e1f9c7b5a3d1e8f6c4b2a9d7c5e3f1c9b7a5d3e1f8c6b4a2d9e7f5c3b1a8d6e4f2c9b7a5d3e1f8c6b4a2d"
         }
 
         _, shared_transaction1 = self.nodes[0].create_shared_message(transaction1)

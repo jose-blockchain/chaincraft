@@ -277,6 +277,8 @@ class ChaincraftNode:
             return True
         elif field_type == "hash":
             return isinstance(field_value, str) and len(field_value) == 64
+        elif field_type == "signature":
+            return isinstance(field_value, str) and len(field_value) in (130, 132, 134, 136, 140, 142)
         else:
             return isinstance(field_value, field_type)
     
