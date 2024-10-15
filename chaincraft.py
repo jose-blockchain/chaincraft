@@ -31,6 +31,13 @@ class SharedMessage:
 
 class ChaincraftNode:
     PEERS = "PEERS"
+    BANNED_PEERS = "BANNED_PEERS"
+
+    def load_peers(self) -> List[Tuple[str, int]]:
+        if self.persistent and self.PEERS.encode() in self.db:
+            return json.loads(self.db[self.PEERS.encode()].decode())
+        else:
+            return []
 
     def __init__(self, max_peers=5, reset_db=False, persistent=False, use_fixed_address=False, debug=False, local_discovery=True):
         self.max_peers = max_peers
@@ -57,10 +64,14 @@ class ChaincraftNode:
 
         self.socket = None
         self.is_running = False
-        self.gossip_interval = 0.5 # seconds
+        self.gossip_interval = 0.5  # seconds
         self.debug = debug
         self.local_discovery = local_discovery
         self.waiting_local_peer = {}
+
+        self.accepted_message_types = []
+        self.banned_peers = self.load_banned_peers()
+        self.invalid_message_counts = {}
 
     def start(self):
         if self.is_running:
@@ -110,7 +121,7 @@ class ChaincraftNode:
             try:
                 if self.db:
                     # Create a list of keys to iterate over
-                    keys_to_share = [key for key in self.db.keys() if key != self.PEERS.encode()]
+                    keys_to_share = [key for key in self.db.keys() if key != self.PEERS.encode() and key != self.BANNED_PEERS.encode()]
                     for key in keys_to_share:
                         object_to_share = self.db[key]
                         if self.persistent:
@@ -176,40 +187,129 @@ class ChaincraftNode:
     def handle_message(self, message, message_hash, addr):
         try:
             if message_hash not in self.db:
-                self.db[message_hash] = message
-                if self.debug:
-                    print(f"Node {self.port}: Received new object with hash {message_hash} Object: {message}")
-                self.broadcast(message)
+                if self.is_message_accepted(message):
+                    self.db[message_hash] = message
+                    if self.debug:
+                        print(f"Node {self.port}: Received new object with hash {message_hash} Object: {message}")
+                    self.broadcast(message)
 
-                shared_object = SharedMessage.from_json(message)
-                if isinstance(shared_object.data, dict):
-                    if SharedMessage.PEER_DISCOVERY in shared_object.data:
-                        peer_address = shared_object.data[SharedMessage.PEER_DISCOVERY]
-                        host, port = peer_address.split(":")
-                        self.connect_to_peer(host, int(port), discovery=True)
-                    elif SharedMessage.REQUEST_LOCAL_PEERS in shared_object.data and self.local_discovery:
-                        requesting_peer = shared_object.data[SharedMessage.REQUEST_LOCAL_PEERS]
-                        host, port = requesting_peer.split(":")
-                        local_peer_list = [f"{peer[0]}:{peer[1]}" for peer in self.peers]
-                        response_object = SharedMessage(data={SharedMessage.LOCAL_PEERS: local_peer_list})
-                        response_message = response_object.to_json()
-                        compressed_message = self.compress_message(response_message)
-                        self.socket.sendto(compressed_message, (host, int(port)))
-                    elif SharedMessage.LOCAL_PEERS in shared_object.data:
-                        peer = addr[0], addr[1]
-                        if peer in self.waiting_local_peer and self.waiting_local_peer[peer]:
-                            local_peers = shared_object.data[SharedMessage.LOCAL_PEERS]
-                            for local_peer in local_peers:
-                                host, port = local_peer.split(":")
-                                self.connect_to_peer(host, int(port))
-                            self.waiting_local_peer[peer] = False
-                            del self.waiting_local_peer[peer]
+                    shared_object = SharedMessage.from_json(message)
+                    if isinstance(shared_object.data, dict):
+                        if SharedMessage.PEER_DISCOVERY in shared_object.data:
+                            peer_address = shared_object.data[SharedMessage.PEER_DISCOVERY]
+                            host, port = peer_address.split(":")
+                            self.connect_to_peer(host, int(port), discovery=True)
+                        elif SharedMessage.REQUEST_LOCAL_PEERS in shared_object.data and self.local_discovery:
+                            requesting_peer = shared_object.data[SharedMessage.REQUEST_LOCAL_PEERS]
+                            host, port = requesting_peer.split(":")
+                            local_peer_list = [f"{peer[0]}:{peer[1]}" for peer in self.peers]
+                            response_object = SharedMessage(data={SharedMessage.LOCAL_PEERS: local_peer_list})
+                            response_message = response_object.to_json()
+                            compressed_message = self.compress_message(response_message)
+                            self.socket.sendto(compressed_message, (host, int(port)))
+                        elif SharedMessage.LOCAL_PEERS in shared_object.data:
+                            peer = addr[0], addr[1]
+                            if peer in self.waiting_local_peer and self.waiting_local_peer[peer]:
+                                local_peers = shared_object.data[SharedMessage.LOCAL_PEERS]
+                                for local_peer in local_peers:
+                                    host, port = local_peer.split(":")
+                                    self.connect_to_peer(host, int(port))
+                                self.waiting_local_peer[peer] = False
+                                del self.waiting_local_peer[peer]
+                else:
+                    self.handle_invalid_message(addr)
             else:
                 if self.debug:
                     print(f"Node {self.port}: Received duplicate object with hash {message_hash}")
         except json.JSONDecodeError:
             if self.debug:
                 print(f"Node {self.port}: Received invalid message from {addr}")
+            self.handle_invalid_message(addr)
+
+    def is_message_accepted(self, message):
+        if not self.accepted_message_types:
+            return True
+
+        try:
+            shared_object = SharedMessage.from_json(message)
+            message_type = type(shared_object.data)
+
+            for accepted_type in self.accepted_message_types:
+                if message_type == dict and self.is_valid_dict_message(shared_object.data, accepted_type):
+                    return True
+                elif message_type in (str, int, float, bool, list, tuple) and message_type == accepted_type:
+                    return True
+
+            return False
+        except json.JSONDecodeError:
+            return False
+
+    def is_valid_dict_message(self, message_data, accepted_type):
+        if "message_type" not in message_data or message_data["message_type"] != accepted_type["message_type"]:
+            return False
+
+        for field, field_type in accepted_type["mandatory_fields"].items():
+            if field not in message_data:
+                return False
+            if not self.is_valid_field_type(message_data[field], field_type):
+                return False
+
+        for field, field_type in accepted_type["optional_fields"].items():
+            if field in message_data and not self.is_valid_field_type(message_data[field], field_type):
+                return False
+
+        return True
+
+    def is_valid_field_type(self, field_value, field_type, visited_types=None):
+        if visited_types is None:
+            visited_types = set()
+
+        if isinstance(field_type, list):
+            if not isinstance(field_value, list):
+                return False
+            if field_type[0] in visited_types:
+                return False  # Recursive type detected
+            visited_types.add(field_type[0])
+            for item in field_value:
+                if not self.is_valid_field_type(item, field_type[0], visited_types):
+                    return False
+            visited_types.remove(field_type[0])
+            return True
+        elif field_type == "hash":
+            return isinstance(field_value, str) and len(field_value) == 64
+        else:
+            return isinstance(field_value, field_type)
+    
+    def handle_invalid_message(self, addr):
+        peer = addr[0], addr[1]
+        if peer not in self.banned_peers:
+            if peer not in self.invalid_message_counts:
+                self.invalid_message_counts[peer] = 1
+            else:
+                self.invalid_message_counts[peer] += 1
+
+            if self.invalid_message_counts[peer] >= 3:
+                self.ban_peer(peer)
+                del self.invalid_message_counts[peer]
+
+    def ban_peer(self, peer):
+        self.banned_peers[peer] = time.time() + 48 * 60 * 60  # Ban for 48 hours
+        if peer in self.peers:
+            self.peers.remove(peer)
+        self.save_banned_peers()
+
+    def load_banned_peers(self):
+        if self.persistent and self.BANNED_PEERS.encode() in self.db:
+            banned_peers_data = json.loads(self.db[self.BANNED_PEERS.encode()].decode())
+            return {tuple(peer): expiration for peer, expiration in banned_peers_data.items()}
+        else:
+            return {}
+
+    def save_banned_peers(self):
+        if self.persistent:
+            banned_peers_data = {",".join(map(str, peer)): expiration for peer, expiration in self.banned_peers.items()}
+            self.db[self.BANNED_PEERS.encode()] = json.dumps(banned_peers_data).encode()
+            self.db_sync()
 
     def create_shared_message(self, data):
         new_object = SharedMessage(data=data)
@@ -232,8 +332,3 @@ class ChaincraftNode:
             self.db[self.PEERS.encode()] = json.dumps(self.peers).encode()
             self.db_sync()
 
-    def load_peers(self) -> List[Tuple[str, int]]:
-        if self.persistent and self.PEERS.encode() in self.db:
-            return json.loads(self.db[self.PEERS.encode()].decode())
-        else:
-            return []
