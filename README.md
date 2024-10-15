@@ -21,7 +21,7 @@ Educational Python library for Blockchains
 ## `SharedObject`
 
 - `isValid(SharedMessage) : boolean`: a message `m` if valid is `all( isValid(m ) for o in sharedObject)`
-- `addMessage(ShareMessage) : void`
+- `addMessage(ShareMessage) : void`: is "added" to all ShredObjects if is valid like `[o.addMessage(m) for o in sharedObject]`
 - `isMerkelized()/hasDigest() : boolean`
 - `getDigest() : SharedMessage`
 - `isValidDigest() : boolean` to check if the digest for the shared object is valid.
@@ -45,11 +45,28 @@ Educational Python library for Blockchains
     - Totally Async (no validation of timestamps)
     - Eventually Synced (timestamps are used for some things, but you accept timestamp far away in time)
     - Bounded Synced Time (`timestamp +/- delta` are the only valid messages, where delta is 15 seconds for example).
+    - Totally Time-synced, like depend on time being totally synced.
 - Identity and Anon User (Tradeoff):
     - Totally Anon Users.
     - Anon Users w/Resources (think Proof-of-Work without signatures)
     - Identified with Signatures.
     - Signature plus protocol to accept the new identity (think adding a validator to Proof-of-Stake).
+- Levels of Data Synchronization:
+    - Torrent: very liberal and concurrent.
+    - Blockchain: very restrictive and sequential.
+    - Middle-ground: decentralized app (non-financial)
+        - Eventually consistent.
+        - All data is validated.
+        - Example1: Decentralized Messenger (santi).
+        - Example2: Decentralized AI
+
+## Brainstorming in DeAI
+
+- Prededetemined Training Sample Blocks List: B1, B2, ..., Bn..
+- Eventually: block Bi is processed.
+- Is Okey if Bn is processed and validated and distributed and B(n-1) is not yet available.
+- Alternative: a node can propose Bn if is missing, Bn-1 is known, or wants to replace existing Bn.
+
 
 ## Run tests
 
