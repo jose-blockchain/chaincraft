@@ -1,5 +1,3 @@
-# chaincraft.py
-
 import json
 import random
 import socket
@@ -9,25 +7,11 @@ import zlib
 import hashlib
 import dbm.ndbm
 import os
-from dataclasses import dataclass
-from typing import Any, List, Tuple, Dict, Union
+from typing import List, Tuple, Dict, Union
 
+from shared_object import SharedObject, SharedObjectException
+from shared_message import SharedMessage
 
-@dataclass
-class SharedMessage:
-    data: Any
-
-    PEER_DISCOVERY = "PEER_DISCOVERY"
-    REQUEST_LOCAL_PEERS = "REQUEST_LOCAL_PEERS"
-    LOCAL_PEERS = "LOCAL_PEERS"
-
-    def to_json(self):
-        return json.dumps(self.data)
-
-    @classmethod
-    def from_json(cls, json_str):
-        return cls(data=json.loads(json_str))
-    
 
 class ChaincraftNode:
     PEERS = "PEERS"
@@ -333,4 +317,3 @@ class ChaincraftNode:
         if self.persistent:
             self.db[self.PEERS.encode()] = json.dumps(self.peers).encode()
             self.db_sync()
-
