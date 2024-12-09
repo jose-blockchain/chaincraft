@@ -23,7 +23,7 @@ class ChaincraftNode:
         else:
             return []
 
-    def __init__(self, max_peers=5, reset_db=False, persistent=False, use_fixed_address=False, debug=False, local_discovery=True):
+    def __init__(self, max_peers=5, reset_db=False, persistent=False, use_fixed_address=False, debug=False, local_discovery=True, shared_objects=None):
         self.max_peers = max_peers
         self.use_fixed_address = use_fixed_address
 
@@ -56,6 +56,10 @@ class ChaincraftNode:
         self.accepted_message_types = []
         self.banned_peers = self.load_banned_peers()
         self.invalid_message_counts = {}
+        self.shared_objects = shared_objects or []
+
+    def add_shared_object(self, shared_object: SharedObject):
+        self.shared_objects.append(shared_object)
 
     def start(self):
         if self.is_running:
@@ -172,42 +176,63 @@ class ChaincraftNode:
         try:
             if message_hash not in self.db:
                 if self.is_message_accepted(message):
-                    self.db[message_hash] = message
-                    if self.debug:
-                        print(f"Node {self.port}: Received new object with hash {message_hash} Object: {message}")
-                    self.broadcast(message)
+                    shared_message = SharedMessage.from_json(message)
+                    if self.shared_objects:
+                        if all(obj.is_valid(shared_message) for obj in self.shared_objects):
+                            for obj in self.shared_objects:
+                                obj.add_message(shared_message)
+                                if self.debug:
+                                    print(f"Node {self.port}: Added message to shared object {type(obj).__name__}")
+                            self.db[message_hash] = message
+                            if self.debug:
+                                print(f"Node {self.port}: Received new object with hash {message_hash} Object: {message}")
+                            self.broadcast(message)
+                        else:
+                            if self.debug:
+                                print(f"Node {self.port}: Received invalid message for shared objects")
+                            self.handle_invalid_message(addr)
+                    else:
+                        self.db[message_hash] = message
+                        if self.debug:
+                            print(f"Node {self.port}: Received new object with hash {message_hash} Object: {message}")
+                        self.broadcast(message)
 
-                    shared_object = SharedMessage.from_json(message)
-                    if isinstance(shared_object.data, dict):
-                        if SharedMessage.PEER_DISCOVERY in shared_object.data:
-                            peer_address = shared_object.data[SharedMessage.PEER_DISCOVERY]
+                    if isinstance(shared_message.data, dict):
+                        if SharedMessage.PEER_DISCOVERY in shared_message.data:
+                            peer_address = shared_message.data[SharedMessage.PEER_DISCOVERY]
                             host, port = peer_address.split(":")
                             self.connect_to_peer(host, int(port), discovery=True)
-                        elif SharedMessage.REQUEST_LOCAL_PEERS in shared_object.data and self.local_discovery:
-                            requesting_peer = shared_object.data[SharedMessage.REQUEST_LOCAL_PEERS]
+                        elif SharedMessage.REQUEST_LOCAL_PEERS in shared_message.data and self.local_discovery:
+                            requesting_peer = shared_message.data[SharedMessage.REQUEST_LOCAL_PEERS]
                             host, port = requesting_peer.split(":")
                             local_peer_list = [f"{peer[0]}:{peer[1]}" for peer in self.peers]
                             response_object = SharedMessage(data={SharedMessage.LOCAL_PEERS: local_peer_list})
                             response_message = response_object.to_json()
                             compressed_message = self.compress_message(response_message)
                             self.socket.sendto(compressed_message, (host, int(port)))
-                        elif SharedMessage.LOCAL_PEERS in shared_object.data:
+                        elif SharedMessage.LOCAL_PEERS in shared_message.data:
                             peer = addr[0], addr[1]
                             if peer in self.waiting_local_peer and self.waiting_local_peer[peer]:
-                                local_peers = shared_object.data[SharedMessage.LOCAL_PEERS]
+                                local_peers = shared_message.data[SharedMessage.LOCAL_PEERS]
                                 for local_peer in local_peers:
                                     host, port = local_peer.split(":")
                                     self.connect_to_peer(host, int(port))
                                 self.waiting_local_peer[peer] = False
                                 del self.waiting_local_peer[peer]
                 else:
+                    if self.debug:
+                        print(f"Node {self.port}: Received unaccepted message")
                     self.handle_invalid_message(addr)
             else:
                 if self.debug:
                     print(f"Node {self.port}: Received duplicate object with hash {message_hash}")
         except json.JSONDecodeError:
             if self.debug:
-                print(f"Node {self.port}: Received invalid message from {addr}")
+                print(f"Node {self.port}: Received invalid JSON message from {addr}")
+            self.handle_invalid_message(addr)
+        except Exception as e:
+            if self.debug:
+                print(f"Node {self.port}: Error while handling message: {e}")
             self.handle_invalid_message(addr)
 
     def is_message_accepted(self, message):
@@ -299,13 +324,28 @@ class ChaincraftNode:
 
     def create_shared_message(self, data):
         new_object = SharedMessage(data=data)
+        
+        # First validate and add to SharedObjects if present
+        if self.shared_objects:
+            if all(obj.is_valid(new_object) for obj in self.shared_objects):
+                for obj in self.shared_objects:
+                    obj.add_message(new_object)
+                    if self.debug:
+                        print(f"Node {self.port}: Added message to shared object {type(obj).__name__}")
+            else:
+                raise SharedObjectException("Invalid message for shared objects")
+        
+        # Then broadcast and store in DB
         message = new_object.to_json()
         message_hash = self.broadcast(message)
         self.db[message_hash] = message
+        
         if self.persistent:
             self.db_sync()
+        
         if self.debug:
-            print(f"Node {self.port}: Created new object with hash {message_hash}")
+            print(f"Node {self.port}: Created new object with hash {message_hash} and data {data}")
+        
         return message_hash, new_object
 
     def db_sync(self):
