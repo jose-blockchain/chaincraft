@@ -1,3 +1,5 @@
+# shared_object.py
+
 from abc import ABC, abstractmethod
 from typing import List
 
@@ -37,8 +39,9 @@ class SharedObject(ABC):
     def add_digest(self, hash_digest: str) -> bool:
         raise SharedObjectException("add_digest method not implemented")
 
+    # CHANGED: Removed `peer` parameter from gossip_object signature
     @abstractmethod
-    def gossip_object(self, peer, digest) -> List[str]:
+    def gossip_object(self, digest) -> List[str]:
         raise SharedObjectException("gossip_object method not implemented")
 
     @abstractmethod

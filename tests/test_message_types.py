@@ -1,4 +1,4 @@
-# test_message_types.py
+# tests/test_message_types.py
 
 import unittest
 import time
