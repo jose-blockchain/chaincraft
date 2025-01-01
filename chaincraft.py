@@ -292,20 +292,8 @@ class ChaincraftNode:
                 elif SharedMessage.REQUEST_SHARED_OBJECT_UPDATE in shared_message.data:
                     self._handle_shared_object_update_request(shared_message)
 
-            if self.is_message_accepted(message):
-                shared_message = SharedMessage.from_json(message)
-                
-                if isinstance(shared_message.data, dict) and SharedMessage.REQUEST_SHARED_OBJECT_UPDATE in shared_message.data:
-                    self._handle_shared_object_update_request(shared_message)
-                else:
-                    if self.shared_objects:
-                        if all(obj.is_valid(shared_message) for obj in self.shared_objects):
-                            for obj in self.shared_objects:
-                                obj.add_message(shared_message)
-                        else: # not a strike, but not valid for any shared object
-                            return
-                    
-                    self._handle_shared_message(shared_message, message, message_hash, addr)
+            # if valid types, process
+            self._handle_shared_message(shared_message, message, message_hash, addr)
 
         except json.JSONDecodeError:
             self.handle_invalid_message(addr)
@@ -319,17 +307,16 @@ class ChaincraftNode:
         special message fields (peer discovery, local peers).
         """
         # Check if the message is valid for our shared objects
-        # if self.shared_objects:
-        #     if all(obj.is_valid(shared_message) for obj in self.shared_objects):
-        #         self._process_shared_objects(shared_message)
-        #         self._store_and_broadcast(message_hash, original_message)
-        #     else:
-        #         if self.debug:
-        #             print(f"Node {self.port}: Received invalid message for shared objects")
-        #         self.handle_invalid_message(addr)
-        #         #return
-        # else:
-        self._store_and_broadcast(message_hash, original_message)
+        if self.shared_objects:
+            if all(obj.is_valid(shared_message) for obj in self.shared_objects):
+                self._process_shared_objects(shared_message)
+                self._store_and_broadcast(message_hash, original_message)
+            else:
+                # is not a strike, but not valid for any shared object
+                if self.debug:
+                    print(f"Node {self.port}: Received invalid message for shared objects")
+        else:
+            self._store_and_broadcast(message_hash, original_message)
 
     def _process_shared_objects(self, shared_message):
         """
