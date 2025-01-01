@@ -12,6 +12,7 @@ class SharedMessage:
     PEER_DISCOVERY = "PEER_DISCOVERY"
     REQUEST_LOCAL_PEERS = "REQUEST_LOCAL_PEERS"
     LOCAL_PEERS = "LOCAL_PEERS"
+    REQUEST_SHARED_OBJECT_UPDATE = "REQUEST_SHARED_OBJECT_UPDATE"
 
     def to_json(self):
         return json.dumps(self.data)
