@@ -1,3 +1,5 @@
+# chaincraft-cli.py
+
 import argparse
 from chaincraft import ChaincraftNode
 
