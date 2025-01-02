@@ -27,7 +27,8 @@ class ChaincraftNode:
         use_fixed_address=False,
         debug=False,
         local_discovery=True,
-        shared_objects=None
+        shared_objects=None,
+        port=None
     ):
         """
         Initialize the ChaincraftNode with optional parameters.
@@ -35,7 +36,9 @@ class ChaincraftNode:
         self.max_peers = max_peers
         self.use_fixed_address = use_fixed_address
 
-        if use_fixed_address:
+        if port is not None:
+            self.port = port
+        elif use_fixed_address:
             self.host = 'localhost'
             self.port = 7331
         else:
