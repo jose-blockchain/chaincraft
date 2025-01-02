@@ -105,6 +105,7 @@ class ChaincraftNode:
 
         threading.Thread(target=self.listen_for_messages, daemon=True).start()
         threading.Thread(target=self.gossip, daemon=True).start()
+        threading.Thread(target=self.check_for_merkelized_objects, daemon=True).start()  # Add this line
 
     def _bind_socket(self):
         """
@@ -227,12 +228,6 @@ class ChaincraftNode:
         compressed_message = self.compress_message(request_message)
         self.socket.sendto(compressed_message, (host, port))
 
-    def compress_message(self, message: str) -> bytes:
-        """
-        Compress a string message into bytes using zlib.
-        """
-        return zlib.compress(message.encode())
-
     def decompress_message(self, compressed_message: bytes) -> str:
         """
         Decompress bytes into a string using zlib.
@@ -271,31 +266,39 @@ class ChaincraftNode:
         return message_hash
 
     def handle_message(self, message, message_hash, addr):
-        """
-        Handle a new incoming message. Validate, store, broadcast if valid.
-        """
+        """Handle a new incoming message. Validate, store, broadcast if valid."""        
         try:
             # Avoid reprocessing if already in DB
-            if message_hash in self.db:
-                if self.debug:
-                    print(f"Node {self.port}: Received duplicate object with hash {message_hash}")
+            if message_hash.encode() in self.db:  # Fix: encode hash for DB key
                 return
-
-            if self.is_message_accepted(message):
-                shared_message = SharedMessage.from_json(message)
-                self._handle_shared_message(shared_message, message, message_hash, addr)
-            else:
-                if self.debug:
-                    print(f"Node {self.port}: Received unaccepted message")
+            
+            if not self.is_message_accepted(message):
                 self.handle_invalid_message(addr)
+                return
+            else:
+                shared_message = SharedMessage.from_json(message)
+                
+            # Additional data-based actions (peer discovery, local peers, etc.)
+            if isinstance(shared_message.data, dict):
+                if SharedMessage.PEER_DISCOVERY in shared_message.data:
+                    self._handle_peer_discovery(shared_message)
+                elif (
+                    SharedMessage.REQUEST_LOCAL_PEERS in shared_message.data
+                    and self.local_discovery
+                ):
+                    self._handle_local_peer_request(shared_message)
+                elif SharedMessage.LOCAL_PEERS in shared_message.data:
+                    self._handle_local_peer_response(shared_message, addr)
+                elif SharedMessage.REQUEST_SHARED_OBJECT_UPDATE in shared_message.data:
+                    self._handle_shared_object_update_request(shared_message)
+
+            # if valid types, process
+            self._handle_shared_message(shared_message, message, message_hash, addr)
 
         except json.JSONDecodeError:
-            if self.debug:
-                print(f"Node {self.port}: Received invalid JSON message from {addr}")
             self.handle_invalid_message(addr)
         except Exception as e:
-            if self.debug:
-                print(f"Node {self.port}: Error while handling message: {e}")
+            print(f"❌ Error handling message: {str(e)}")
             self.handle_invalid_message(addr)
 
     def _handle_shared_message(self, shared_message, original_message, message_hash, addr):
@@ -309,24 +312,11 @@ class ChaincraftNode:
                 self._process_shared_objects(shared_message)
                 self._store_and_broadcast(message_hash, original_message)
             else:
+                # is not a strike, but not valid for any shared object
                 if self.debug:
                     print(f"Node {self.port}: Received invalid message for shared objects")
-                self.handle_invalid_message(addr)
-                return
         else:
             self._store_and_broadcast(message_hash, original_message)
-
-        # Additional data-based actions (peer discovery, local peers, etc.)
-        if isinstance(shared_message.data, dict):
-            if SharedMessage.PEER_DISCOVERY in shared_message.data:
-                self._handle_peer_discovery(shared_message)
-            elif (
-                SharedMessage.REQUEST_LOCAL_PEERS in shared_message.data
-                and self.local_discovery
-            ):
-                self._handle_local_peer_request(shared_message)
-            elif SharedMessage.LOCAL_PEERS in shared_message.data:
-                self._handle_local_peer_response(shared_message, addr)
 
     def _process_shared_objects(self, shared_message):
         """
@@ -532,3 +522,96 @@ class ChaincraftNode:
         if self.persistent:
             value = value.decode()
         return value
+
+    def compress_message(self, message: str) -> bytes:
+        if isinstance(message, str):
+            return zlib.compress(message.encode())
+        else:
+            raise TypeError(f"Expected str, got {type(message)}")
+    
+    def check_for_merkelized_objects(self):
+        if self.debug:
+            print("🔄 Starting check_for_merkelized_objects loop")
+        while self.is_running:
+            if self.debug:
+                print(f"🔍 Checking {len(self.shared_objects)} shared objects")
+            for obj in self.shared_objects:
+                if self.debug:
+                    print(f"📦 Examining object of type: {type(obj).__name__}")
+                if obj.is_merkelized():
+                    latest_digest = obj.get_latest_digest()
+                    class_name = type(obj).__name__
+                    if self.debug:
+                        print(f"✨ Found merkelized object - class: {class_name}, digest: {latest_digest[:8]}...")
+                    self.request_shared_object_update(class_name, latest_digest)
+                elif self.debug:
+                    print(f"⏭️ Object {type(obj).__name__} is not merkelized")
+            if self.debug:
+                print(f"💤 Sleeping for {self.gossip_interval} seconds")
+            time.sleep(self.gossip_interval)  # Adjust the interval as needed
+
+    def request_shared_object_update(self, class_name, digest):
+        if self.debug:
+            print(f"\n📤 Requesting update for {class_name} with digest {digest[:8]}...")
+        message = SharedMessage(data={
+            SharedMessage.REQUEST_SHARED_OBJECT_UPDATE: {
+                "class_name": class_name,
+                "digest": digest
+            }
+        })
+        message_json = message.to_json()
+        if self.debug:
+            print(f"📝 Created message - type: {type(message_json)}")
+            print(f"📄 Content: {message_json}")
+        
+        try:
+            self.broadcast(message_json)  # Pass the JSON string directly to broadcast
+            if self.debug:
+                print(f"✅ Successfully broadcast update request for {class_name}")
+        except Exception as e:
+            if self.debug:
+                print(f"❌ Failed to broadcast update request: {str(e)}")
+
+    def _handle_shared_object_update_request(self, shared_message):
+        if self.debug:
+            print("\n📥 Received update request")
+        request_data = shared_message.data[SharedMessage.REQUEST_SHARED_OBJECT_UPDATE]
+        class_name = request_data["class_name"]
+        digest = request_data["digest"]
+        
+        if self.debug:
+            print(f"🔍 Processing request - class: {class_name}, digest: {digest[:8]}...")
+            print(f"📊 Number of shared objects to check: {len(self.shared_objects)}")
+        
+        matching_objects = 0
+        for obj in self.shared_objects:
+            current_class = type(obj).__name__
+            if self.debug:
+                print(f"🔎 Checking object type {current_class}")
+                print(f"📋 Object chain: {[h[:8] + '...' for h in obj.chain]}")
+            
+            if current_class == class_name:
+                matching_objects += 1
+                if obj.is_valid_digest(digest):
+                    if self.debug:
+                        print(f"✅ Found matching object with valid digest")
+                    messages_to_gossip = obj.gossip_object(digest)
+                    if self.debug:
+                        print(f"📨 Got {len(messages_to_gossip)} messages to gossip")
+                    
+                    for idx, message in enumerate(messages_to_gossip):
+                        try:
+                            json_msg = message.to_json()
+                            if self.debug:
+                                print(f"📤 Broadcasting next hash {idx + 1}/{len(messages_to_gossip)}: {message.data[:8]}...")
+                            self.broadcast(json_msg)
+                            if self.debug:
+                                print(f"✅ Broadcast successful")
+                        except Exception as e:
+                            if self.debug:
+                                print(f"❌ Failed to broadcast message {idx + 1}: {str(e)}")
+                elif self.debug:
+                    print(f"❌ Invalid digest {digest[:8]}...")
+        
+        if matching_objects == 0 and self.debug:
+            print(f"⚠️ No matching objects found for class {class_name}")
