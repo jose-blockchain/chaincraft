@@ -1,5 +1,6 @@
 # chaincraft
-Educational Python library for Blockchains
+
+Chaincraft: The platform for blockchain education and prototyping
 
 ## Roadmap
 
