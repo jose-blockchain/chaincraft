@@ -102,7 +102,7 @@ class TestChaincraftNetwork(unittest.TestCase):
                 print(f"Node {node.port}: Shared number: {node.shared_objects[0].number}")
 
         expected_number = sum(range(1, self.num_nodes + 1))
-        self.assertTrue(wait_for_propagation(self.nodes, 0, expected_number, timeout=15))
+        self.assertTrue(wait_for_propagation(self.nodes, 0, expected_number, timeout=10))
 
 if __name__ == '__main__':
     unittest.main()

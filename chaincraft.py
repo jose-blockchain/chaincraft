@@ -37,10 +37,11 @@ class ChaincraftNode:
         self.use_fixed_address = use_fixed_address
 
         if port is not None:
+            self.host = '127.0.0.1'
             self.port = port
         elif use_fixed_address:
             self.host = 'localhost'
-            self.port = 7331
+            self.port = 21000
         else:
             self.host = '127.0.0.1'
             self.port = random.randint(5000, 9000)
@@ -259,8 +260,8 @@ class ChaincraftNode:
         for peer in self.peers:
             try:
                 self.socket.sendto(compressed_message, peer)
-                if self.debug:
-                    print(f"Node {self.port}: Sent message to peer {peer}")
+                #if self.debug:
+                #    print(f"Node {self.port}: Sent message to peer {peer}")
             except Exception as e:
                 if self.debug:
                     print(f"Node {self.port}: Failed to send message to peer {peer}. Error: {e}")
