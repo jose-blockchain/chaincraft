@@ -76,6 +76,15 @@ Run all tests:
 python -m unittest discover -v -s tests
 ```
 
+Result:
+```bash
+...
+----------------------------------------------------------------------
+Ran 38 tests in 61.963s
+
+OK
+```
+
 A single testfile:
 
 ```bash
