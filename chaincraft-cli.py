@@ -3,7 +3,7 @@
 import argparse
 from chaincraft import ChaincraftNode
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description='Chaincraft CLI')
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debugging')
     parser.add_argument('-p', '--port', type=int, default=21000, help='Specify port number (default: 21000)')
