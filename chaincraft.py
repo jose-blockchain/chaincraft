@@ -294,7 +294,7 @@ class ChaincraftNode:
                 elif SharedMessage.LOCAL_PEERS in shared_message.data:
                     self._handle_local_peer_response(shared_message, addr)
                 elif SharedMessage.REQUEST_SHARED_OBJECT_UPDATE in shared_message.data:
-                    self._handle_shared_object_update_request(shared_message)
+                    self._handle_shared_object_update_request(shared_message, addr)
 
             # if valid types, process
             self._handle_shared_message(shared_message, message, message_hash, addr)
@@ -576,9 +576,9 @@ class ChaincraftNode:
             if self.debug:
                 print(f"❌ Failed to broadcast update request: {str(e)}")
 
-    def _handle_shared_object_update_request(self, shared_message):
+    def _handle_shared_object_update_request(self, shared_message, addr):
         if self.debug:
-            print("\n📥 Received update request")
+            print("\n📥 Received update request from", addr)
         request_data = shared_message.data[SharedMessage.REQUEST_SHARED_OBJECT_UPDATE]
         class_name = request_data["class_name"]
         digest = request_data["digest"]
@@ -607,13 +607,14 @@ class ChaincraftNode:
                         try:
                             json_msg = message.to_json()
                             if self.debug:
-                                print(f"📤 Broadcasting next hash {idx + 1}/{len(messages_to_gossip)}: {message.data[:8]}...")
-                            self.broadcast(json_msg)
+                                print(f"📤 Sending next hash {idx + 1}/{len(messages_to_gossip)} to {addr}: {message.data[:8]}...")
+                            compressed_message = self.compress_message(json_msg)
+                            self.socket.sendto(compressed_message, addr)
                             if self.debug:
-                                print(f"✅ Broadcast successful")
+                                print(f"✅ Send to {addr} successful")
                         except Exception as e:
                             if self.debug:
-                                print(f"❌ Failed to broadcast message {idx + 1}: {str(e)}")
+                                print(f"❌ Failed to send message {idx + 1} to {addr}: {str(e)}")
                 elif self.debug:
                     print(f"❌ Invalid digest {digest[:8]}...")
         
