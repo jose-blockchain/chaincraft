@@ -8,10 +8,10 @@ Chaincraft: The platform for blockchain education and prototyping
 - [x] Permanent storage: the JSON messages are stored in key/value.
 - [x] Discovery: Global or Local Discovery of new nodes.
 - [x] Mandatory and Optional Fields and Types: Some format for JSON, prevalidation. Ban peers sending invalid format.
-- [ ] `SharedObject` list that is updated by `SharedMessages` (inside can go Linked Fields Chaining). Ban peers sending invalid messages.
+- [x] `SharedObject` list that is updated by `SharedMessages` (inside can go Linked Fields Chaining). Ban peers sending invalid messages.
+- [x] Merklelized Storage: to know quicker when some a SharedObject is broken or which index for a linear array of messages/blocks.
 - [ ] Primitives (RSA, ECSA, VDF, VRF, Signature Aggregation, LSH, Quantum-resistant Primitives)
 - [ ] Indexing (MongoDB-like)
-- [ ] Merklelized Storage: to know quicker when some a SharedObject is broken or which index for a linear array of messages/blocks.
 
 ## `SharedMessage`
 
