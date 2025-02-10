@@ -22,7 +22,7 @@ class TestChaincraftNode(unittest.TestCase):
     def test_fixed_address_initialization(self):
         node = self.create_node(use_fixed_address=True)
         self.assertEqual(node.host, 'localhost')
-        self.assertEqual(node.port, 7331)
+        self.assertEqual(node.port, 21000)
 
     def test_random_address_initialization(self):
         node = self.create_node(use_fixed_address=False)
