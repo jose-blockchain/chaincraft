@@ -316,9 +316,8 @@ class ChaincraftNode:
                 self._process_shared_objects(shared_message)
                 self._store_and_broadcast(message_hash, original_message)
             else:
-                # is not a strike, but not valid for any shared object
-                if self.debug:
-                    print(f"Node {self.port}: Received invalid message for shared objects")
+                # Apply strike for messages not accepted by SharedObjects
+                self.handle_invalid_message(addr)
         else:
             self._store_and_broadcast(message_hash, original_message)
 
