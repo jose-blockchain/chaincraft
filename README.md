@@ -97,3 +97,82 @@ To run a single test inside a testfile:
 ```bash
 python -m unittest -v -k test_local_discovery_enabled tests/test_local_discovery.py
 ```
+
+## Example Usage of Primitives
+
+Here are a few code snippets to illustrate how you might use the different primitives:
+
+### Proof-of-Work (PoW)
+
+```python
+from crypto_primitives.pow import ProofOfWorkPrimitive
+
+# Initialize PoW with desired difficulty
+pow_primitive = ProofOfWorkPrimitive(difficulty_bits=12)
+
+challenge = "Hello, Chaincraft!"
+nonce, hash_hex = pow_primitive.create_proof(challenge)
+print("Found nonce:", nonce)
+print("Hash:", hash_hex)
+
+# Verify the proof
+is_valid = pow_primitive.verify_proof(challenge, nonce, hash_hex)
+print("Proof valid?", is_valid)
+```
+
+### Verifiable Delay Function (VDF)
+
+```python
+from crypto_primitives.vdf import VDFPrimitive
+
+# A simple, mock VDF with a set number of iterations
+vdf_primitive = VDFPrimitive(iterations=5000)
+
+input_data = "chaincraft_vdf_challenge"
+proof = vdf_primitive.create_proof(input_data)
+print("VDF proof:", proof)
+
+# Verify the proof by recomputing
+verification = vdf_primitive.verify_proof(input_data, proof)
+print("VDF verified:", verification)
+```
+
+### ECDSA (Signing/Verification)
+
+```python
+from crypto_primitives.ecdsa_sign import ECDSASignaturePrimitive
+
+# Create and store an ECDSA key pair
+ecdsa_primitive = ECDSASignaturePrimitive()
+ecdsa_primitive.generate_key()
+
+message = b"Sample data for signing"
+signature = ecdsa_primitive.sign(message)
+print("Signature (hex):", signature.hex())
+
+# Verification
+verified = ecdsa_primitive.verify(message, signature)
+print("Signature verified?", verified)
+```
+
+### ECDSA-based VRF (Verifiable Random Function)
+
+```python
+from crypto_primitives.vrf import ECDSAVRFPrimitive
+
+# Create an ECDSA VRF key pair
+vrf_primitive = ECDSAVRFPrimitive()
+vrf_primitive.generate_key()
+
+message = b"VRF input"
+proof = vrf_primitive.sign(message)  # ECDSA signature as proof
+print("VRF proof (signature hex):", proof.hex())
+
+# Verify and generate VRF output (pseudo-randomness)
+is_valid = vrf_primitive.verify(message, proof)
+vrf_output = vrf_primitive.vrf_output(message, proof) if is_valid else None
+print("VRF verified?", is_valid)
+print("VRF output (hash of signature):", vrf_output.hex() if vrf_output else None)
+```
+
+Combine these primitives as needed in your blockchain or decentralized application logic, for example to create a PoW-based consensus, to prove time delays (VDF), or to sign/verify transactions or blocks (ECDSA/VRF).
