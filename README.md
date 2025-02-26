@@ -1,75 +1,108 @@
-# chaincraft
+# Chaincraft
 
-Chaincraft: The platform for blockchain education and prototyping
+**A platform for blockchain education and prototyping**
 
-## Roadmap
+Chaincraft is a Python-based framework for building and experimenting with blockchain protocols. It provides the fundamental components needed to create distributed networks, implement consensus mechanisms, and prototype blockchain applications.
 
-- [x] Gossip: Sharing JSON messages between the nodes (`SharedMessage`).
-- [x] Permanent storage: the JSON messages are stored in key/value.
-- [x] Discovery: Global or Local Discovery of new nodes.
-- [x] Mandatory and Optional Fields and Types: Some format for JSON, prevalidation. Ban peers sending invalid format.
-- [x] `SharedObject` list that is updated by `SharedMessages` (inside can go Linked Fields Chaining). Ban peers sending invalid messages.
-- [x] Merklelized Storage: to know quicker when some a SharedObject is broken or which index for a linear array of messages/blocks.
-- [ ] Primitives (RSA, ECSA, VDF, VRF, Signature Aggregation, LSH, Quantum-resistant Primitives)
-- [ ] Indexing (MongoDB-like)
+## Key Features
 
-## `SharedMessage`
+- **Decentralized Network**: Built-in peer discovery, connection management, and message propagation
+- **Shared Objects**: Extensible framework for maintaining distributed state across nodes
+- **Cryptographic Primitives**: Implementation of essential blockchain cryptography
+- **Persistence**: Optional persistent storage for nodes and messages
+- **Data Validation**: Type checking and schema validation for messages
+- **Merklelized Storage**: Support for efficient state synchronization
 
-- `prevalidation(message) : boolean` with mandatory/optional fields and types.
-- Test `isValid(message)` for all `SharedObjects` like Ledgers or Mempools.
-- Do update for all shared objects with `addMessage(message)`.
+## Architecture
 
-## `SharedObject`
+Chaincraft is built on several core components:
 
-- `isValid(SharedMessage) : boolean`: a message `m` if valid is `all( isValid(m ) for o in sharedObject)`
-- `addMessage(ShareMessage) : void`: is "added" to all ShredObjects if is valid like `[o.addMessage(m) for o in sharedObject]`
-- `isMerkelized()/hasDigest() : boolean`
-- `getDigest() : SharedMessage`
-- `isValidDigest() : boolean` to check if the digest for the shared object is valid.
-- `gossipObject(peer,myDigest) : List(SharedMessage)` to sync the SharedObject locally, requesting more messages.
-- Local `SharedObject` gossip using `hasDigest()`, `getDigest()`, `gossipObject()` and `isValidDigest()`. 
+- `ChaincraftNode`: Handles networking, peer discovery, and message gossip
+- `SharedMessage`: Wraps and serializes data for network transmission
+- `SharedObject`: Abstract base class for implementing distributed data structures
+- Cryptographic primitives: PoW, VDF, ECDSA, and VRF implementations
 
-# Example (Bitcoin)
+## Usage
 
-- The shared object are `Ledger` and `Mempool`.
-- A bitcoin transaction `tx` is only a transfer for simplicity.
-- Example: `Ledger.isValid(tx)` is `true` if the sender has enough balance in account to do the transfer.
-- Example `Mempool.addMessage(tx)` will do a sorted insert into the priority queue of `Mempool` based on the fee that the sender is paying, higher fees gets more priority to be included in the next block of transactions.
+### Basic Node Setup
 
-## Design Principles for Prototyping Blockchains and Protocols
+```python
+from chaincraft import ChaincraftNode
 
-- Blockchain Trilemma (Tradeoff):
-    - Security
-    - Scalability
-    - Decentralization
-- Time Synchronization (Tradeoff): having better synced time has pros and cons.
-    - Totally Async (no validation of timestamps)
-    - Eventually Synced (timestamps are used for some things, but you accept timestamp far away in time)
-    - Bounded Synced Time (`timestamp +/- delta` are the only valid messages, where delta is 15 seconds for example).
-    - Totally Time-synced, like depend on time being totally synced.
-- Identity and Anon User (Tradeoff):
-    - Totally Anon Users.
-    - Anon Users w/Resources (think Proof-of-Work without signatures)
-    - Identified with Signatures.
-    - Signature plus protocol to accept the new identity (think adding a validator to Proof-of-Stake).
-- Levels of Data Synchronization:
-    - Torrent: very liberal and concurrent.
-    - Blockchain: very restrictive and sequential.
-    - Middle-ground: decentralized app (non-financial)
-        - Eventually consistent.
-        - All data is validated.
-        - Example1: Decentralized Messenger (santi).
-        - Example2: Decentralized AI
+# Create a node with default settings
+node = ChaincraftNode()
+node.start()
 
-## Brainstorming in DeAI
+# Connect to another node
+node.connect_to_peer("127.0.0.1", 21000)
 
-- Prededetemined Training Sample Blocks List: B1, B2, ..., Bn..
-- Eventually: block Bi is processed.
-- Is Okey if Bn is processed and validated and distributed and B(n-1) is not yet available.
-- Alternative: a node can propose Bn if is missing, Bn-1 is known, or wants to replace existing Bn.
+# Create and broadcast a message
+node.create_shared_message("Hello, Chaincraft!")
+```
 
+### Creating a Custom Shared Object
 
-## Run tests
+```python
+from shared_object import SharedObject
+from shared_message import SharedMessage
+
+class MySharedState(SharedObject):
+    def __init__(self):
+        self.state = {}
+        self.chain = []  # For merklelized sync
+    
+    def is_valid(self, message: SharedMessage) -> bool:
+        # Validate incoming messages
+        return isinstance(message.data, dict) and "key" in message.data
+        
+    def add_message(self, message: SharedMessage) -> None:
+        # Update state based on message
+        self.state[message.data["key"]] = message.data["value"]
+        self.chain.append(message.data)
+        
+    # Implement other required methods for merklelized storage
+    def is_merkelized(self) -> bool:
+        return True
+        
+    def get_latest_digest(self) -> str:
+        # Return latest state digest for sync
+        return hashlib.sha256(json.dumps(self.chain).encode()).hexdigest()
+    
+    # Additional required methods...
+```
+
+### Using Cryptographic Primitives
+
+```python
+from crypto_primitives.pow import ProofOfWorkPrimitive
+
+# Create a Proof of Work challenge
+pow_primitive = ProofOfWorkPrimitive(difficulty_bits=16)
+challenge = "block_data_here"
+nonce, hash_hex = pow_primitive.create_proof(challenge)
+
+# Verify the proof
+is_valid = pow_primitive.verify_proof(challenge, nonce, hash_hex)
+```
+
+## Blockchain Prototyping
+
+Chaincraft provides the building blocks for implementing various blockchain designs:
+
+- **Proof of Work Blockchains**: Using the PoW primitive
+- **State-Based Applications**: Using SharedObjects for consensus
+- **Transaction Validation**: Using the message validation framework
+- **Custom Consensus Mechanisms**: By extending SharedObjects with validation rules
+
+## Examples
+
+The project includes example implementations:
+
+- **Simple Blockchain**: A basic blockchain with PoW consensus
+- **Message Chain**: A merklelized append-only log of messages
+- **ECDSA Transactions**: Signed transactions with balance tracking
+
+## Running Tests
 
 Run all tests:
 
@@ -77,102 +110,56 @@ Run all tests:
 python -m unittest discover -v -s tests
 ```
 
-Result:
-```bash
-...
-----------------------------------------------------------------------
-Ran 38 tests in 61.963s
-
-OK
-```
-
-A single testfile:
+Run a specific test file:
 
 ```bash
-python -m unittest tests/test_start.py
+python -m unittest tests/test_blockchain_example.py
 ```
 
-To run a single test inside a testfile:
+Run a specific test:
 
 ```bash
 python -m unittest -v -k test_local_discovery_enabled tests/test_local_discovery.py
 ```
 
-## Example Usage of Primitives
+## Design Principles
 
-Here are a few code snippets to illustrate how you might use the different primitives:
+Chaincraft is designed to help explore blockchain tradeoffs:
 
-### Proof-of-Work (PoW)
+- **Blockchain Trilemma**:
+  - Security vs. Scalability vs. Decentralization
 
-```python
-from crypto_primitives.pow import ProofOfWorkPrimitive
+- **Time Synchronization**:
+  - Asynchronous vs. Time-Bounded vs. Synchronized
 
-# Initialize PoW with desired difficulty
-pow_primitive = ProofOfWorkPrimitive(difficulty_bits=12)
+- **Identity Models**:
+  - Anonymous vs. Resource-Based vs. Identity-Based
 
-challenge = "Hello, Chaincraft!"
-nonce, hash_hex = pow_primitive.create_proof(challenge)
-print("Found nonce:", nonce)
-print("Hash:", hash_hex)
+## Contributing
 
-# Verify the proof
-is_valid = pow_primitive.verify_proof(challenge, nonce, hash_hex)
-print("Proof valid?", is_valid)
-```
+Contributions to Chaincraft are welcome! This is an educational project aimed at helping developers understand blockchain concepts through hands-on implementation.
 
-### Verifiable Delay Function (VDF)
+## Current Status (Roadmap)
 
-```python
-from crypto_primitives.vdf import VDFPrimitive
-
-# A simple, mock VDF with a set number of iterations
-vdf_primitive = VDFPrimitive(iterations=5000)
-
-input_data = "chaincraft_vdf_challenge"
-proof = vdf_primitive.create_proof(input_data)
-print("VDF proof:", proof)
-
-# Verify the proof by recomputing
-verification = vdf_primitive.verify_proof(input_data, proof)
-print("VDF verified:", verification)
-```
-
-### ECDSA (Signing/Verification)
-
-```python
-from crypto_primitives.ecdsa_sign import ECDSASignaturePrimitive
-
-# Create and store an ECDSA key pair
-ecdsa_primitive = ECDSASignaturePrimitive()
-ecdsa_primitive.generate_key()
-
-message = b"Sample data for signing"
-signature = ecdsa_primitive.sign(message)
-print("Signature (hex):", signature.hex())
-
-# Verification
-verified = ecdsa_primitive.verify(message, signature)
-print("Signature verified?", verified)
-```
-
-### ECDSA-based VRF (Verifiable Random Function)
-
-```python
-from crypto_primitives.vrf import ECDSAVRFPrimitive
-
-# Create an ECDSA VRF key pair
-vrf_primitive = ECDSAVRFPrimitive()
-vrf_primitive.generate_key()
-
-message = b"VRF input"
-proof = vrf_primitive.sign(message)  # ECDSA signature as proof
-print("VRF proof (signature hex):", proof.hex())
-
-# Verify and generate VRF output (pseudo-randomness)
-is_valid = vrf_primitive.verify(message, proof)
-vrf_output = vrf_primitive.vrf_output(message, proof) if is_valid else None
-print("VRF verified?", is_valid)
-print("VRF output (hash of signature):", vrf_output.hex() if vrf_output else None)
-```
-
-Combine these primitives as needed in your blockchain or decentralized application logic, for example to create a PoW-based consensus, to prove time delays (VDF), or to sign/verify transactions or blocks (ECDSA/VRF).
+- ✅ Gossip Protocol: Sharing JSON messages between nodes
+- ✅ Persistent Storage: Key-value storage for messages
+- ✅ Peer Discovery: Global and local node discovery
+- ✅ Message Validation: Field and type validation with peer banning
+- ✅ Shared Objects: State synchronization between nodes
+- ✅ Merklelized Storage: Efficient state synchronization
+- ⬜ Additional Cryptographic Primitives
+- ⬜ Indexing (MongoDB-like)
+- ⬜ Transaction Validation
+- ⬜ Consensus Mechanisms
+- ⬜ Smart Contracts
+- ⬜ State Machine Replication
+- ⬜ Sharding
+- ⬜ Proof of Stake
+- ⬜ Proof of Authority
+- ⬜ Proof of Elapsed Time
+- ⬜ Proof of Stake with VRF
+- ⬜ Proof of Stake with VDF
+- ⬜ Proof of Stake with PoW
+- ⬜ Proof of Stake with PoW and VDF
+- ⬜ Proof of Stake with PoW and VRF
+- ⬜ Proof of Stake with PoW and VDF and VRF
