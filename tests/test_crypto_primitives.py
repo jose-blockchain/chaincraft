@@ -19,11 +19,33 @@ class TestCryptoPrimitives(unittest.TestCase):
         self.assertTrue(pow_primitive.verify_proof(challenge, nonce, hash_hex))
 
     def test_vdf(self):
-        # Use fewer iterations for test speed
-        vdf_primitive = VDFPrimitive(iterations=5000)
+        # Use fewer iterations for testing speed
+        vdf_primitive = VDFPrimitive(iterations=1000)
         input_data = "TestVDF"
+        
+        # Measure time for proof generation
+        start_time = time.time()
         proof = vdf_primitive.create_proof(input_data)
-        self.assertTrue(vdf_primitive.verify_proof(input_data, proof))
+        proof_time = time.time() - start_time
+        
+        # Measure time for verification
+        start_time = time.time()
+        verification_result = vdf_primitive.verify_proof(input_data, proof)
+        verify_time = time.time() - start_time
+        
+        # Verification should be successful
+        self.assertTrue(verification_result)
+        
+        # Verification should be significantly faster than proof generation
+        # Typically at least 10x faster, but we'll use 2x as a conservative test bound
+        print(f"VDF proof generation time: {proof_time:.4f}s")
+        print(f"VDF verification time: {verify_time:.4f}s")
+        print(f"Speedup factor: {proof_time/verify_time:.2f}x")
+        self.assertGreater(proof_time / verify_time, 2)
+        
+        # Test with incorrect proof
+        incorrect_proof = proof + 1
+        self.assertFalse(vdf_primitive.verify_proof(input_data, incorrect_proof))
 
     def test_ecdsa_sign(self):
         ecdsa_primitive = ECDSASignaturePrimitive()
