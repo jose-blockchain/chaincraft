@@ -32,17 +32,14 @@ class ProofOfWorkPrimitive(KeylessCryptoPrimitive):
             test_str = challenge + str(nonce)
             hash_hex = hashlib.sha256(test_str.encode()).hexdigest()
             if hash_hex.startswith(target_prefix):
-                return (nonce, hash_hex)
+                return nonce
             nonce += 1
 
-    def verify_proof(self, challenge: str, nonce: int, hash_hex: str) -> bool:
+    def verify_proof(self, challenge: str, nonce: int) -> bool:
         """
         Verify if hashing challenge + nonce meets the difficulty requirement.
         """
         calculated = hashlib.sha256((challenge + str(nonce)).encode()).hexdigest()
-
-        if calculated != hash_hex:
-            return False
 
         prefix_zeros = self.difficulty_bits // 4
         return calculated.startswith("0" * prefix_zeros)
