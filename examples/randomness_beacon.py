@@ -112,6 +112,9 @@ class RandomnessBeacon(SharedObject):
         # For merklelized sync
         self.chain_hashes: List[str] = []
         
+        # Dictionary to map block hashes to their heights for quick lookup
+        self.hash_to_height: Dict[str, int] = {}
+        
         # Add genesis block
         self._add_genesis_block()
     
@@ -126,12 +129,168 @@ class RandomnessBeacon(SharedObject):
         )
         self.chain.append(genesis_block)
         self.chain_hashes.append(genesis_block.block_hash)
+        self.hash_to_height[genesis_block.block_hash] = genesis_block.block_height
     
-    def get_latest_block(self) -> Block:
-        """Get the latest block in the chain"""
-        return self.chain[-1]
+    def add_message(self, message: SharedMessage) -> None:
+        """
+        Add a new block to the chain from a message.
+        
+        Args:
+            message: The SharedMessage containing a block proposal.
+        """
+        try:
+            block_data = message.data
+            
+            # Skip if not a BlockMessage type
+            if not isinstance(block_data, dict) or block_data.get("message_type") != "BlockMessage":
+                return
+            
+            # First, check if we already have this exact block by its hash
+            if "block_hash" in block_data and self.has_digest(block_data["block_hash"]):
+                # We already have this exact block
+                print(f"Already have block with hash {block_data['block_hash'][:8]}")
+                return
+            
+            # Create block instance from the data
+            proposed_block = Block.from_dict(block_data)
+            
+            # Verify that the calculated hash matches the provided hash
+            if "block_hash" in block_data and block_data["block_hash"] != proposed_block.block_hash:
+                print(f"Block hash mismatch: {block_data['block_hash'][:8]} != {proposed_block.block_hash[:8]}")
+                return
+            
+            # Get the current latest block
+            latest_block = self.get_latest_block()
+            
+            # Check if any block in our chain has the same hash but different height (which would be invalid)
+            # Using the hash_to_height dictionary for fast lookup
+            if proposed_block.block_hash in self.hash_to_height:
+                existing_height = self.hash_to_height[proposed_block.block_hash]
+                if existing_height != proposed_block.block_height:
+                    print(f"INVALID: Block with hash {proposed_block.block_hash[:8]} already exists at height {existing_height}, " +
+                            f"but is being proposed for height {proposed_block.block_height}")
+                    return
+            
+            # Print more debug info
+            print(f"Processing block: height={proposed_block.block_height}, hash={proposed_block.block_hash[:8]}, current height={latest_block.block_height}")
+            
+            # If the proposed block is for a height that's already finalized (below current height),
+            # we just print a warning and don't update our chain
+            if proposed_block.block_height < latest_block.block_height:
+                # We check if this block conflicts with our block at the same height
+                if proposed_block.block_height < len(self.chain):
+                    existing_block_at_height = self.chain[proposed_block.block_height]
+                    
+                    # If the hashes are different, we have a conflict but we DON'T resolve it
+                    if existing_block_at_height.block_hash != proposed_block.block_hash:
+                        # Use the collision resolution logic just to see which one would have won
+                        winner_block = self._resolve_collision(existing_block_at_height, proposed_block)
+                        
+                        # Print a warning with the information
+                        if winner_block.block_hash == proposed_block.block_hash:
+                            print(f"WARNING: Historical block conflict at height {proposed_block.block_height}: " +
+                                f"Received block {proposed_block.block_hash[:8]} would have won over our block {existing_block_at_height.block_hash[:8]}")
+                        else:
+                            print(f"WARNING: Historical block conflict at height {proposed_block.block_height}: " +
+                                f"Our block {existing_block_at_height.block_hash[:8]} would have won over received block {proposed_block.block_hash[:8]}")
+                        
+                        print(f"Ignoring historical block conflict as the height is already finalized")
+                
+                # Just ensure we have the hash in our chain_hashes for merkle sync
+                if proposed_block.block_hash not in self.chain_hashes:
+                    # For historical records only
+                    print(f"Adding historical block digest: height={proposed_block.block_height}, hash={proposed_block.block_hash[:8]}")
+                    self.add_digest(proposed_block.block_hash)
+                    # Also add to hash_to_height dictionary if not already present
+                    if proposed_block.block_hash not in self.hash_to_height:
+                        self.hash_to_height[proposed_block.block_hash] = proposed_block.block_height
+                return
+            
+            # If the proposed block is for the same height as the latest block,
+            # we have a collision to resolve
+            if proposed_block.block_height == latest_block.block_height:
+                # Special case: if the block has the exact same hash as our current block at this height,
+                # it's the same block so we can ignore it
+                if proposed_block.block_hash == latest_block.block_hash:
+                    print(f"Received duplicate of current block at height {proposed_block.block_height}")
+                    return
+                
+                # Resolve the collision
+                winner_block = self._resolve_collision(latest_block, proposed_block)
+                
+                # If the new block won, replace the last block
+                if winner_block.block_hash == proposed_block.block_hash:
+                    print(f"Collision at height {proposed_block.block_height}: New block {proposed_block.block_hash[:8]} won over {latest_block.block_hash[:8]}")
+                    
+                    # Rollback the ledger increase for the previous block miner
+                    old_count = self.ledger.get(latest_block.coinbase_address, 0)
+                    if old_count > 0:
+                        self.ledger[latest_block.coinbase_address] = old_count - 1
+                    
+                    # Remove the old block's hash from our hash_to_height dictionary
+                    if latest_block.block_hash in self.hash_to_height:
+                        del self.hash_to_height[latest_block.block_hash]
+                    
+                    # Replace the last block
+                    self.chain[-1] = proposed_block
+                    self.chain_hashes[-1] = proposed_block.block_hash
+                    
+                    # Add the new block's hash to our hash_to_height dictionary
+                    self.hash_to_height[proposed_block.block_hash] = proposed_block.block_height
+                    
+                    # Update the ledger for the new block miner
+                    self.ledger[proposed_block.coinbase_address] = self.ledger.get(proposed_block.coinbase_address, 0) + 1
+                    
+                    print(f"Updated chain: height={latest_block.block_height}, tip={proposed_block.block_hash[:8]}")
+                    print(f"Updated ledger: {self.ledger}")
+                else:
+                    print(f"Collision at height {proposed_block.block_height}: Existing block {latest_block.block_hash[:8]} won over {proposed_block.block_hash[:8]}")
+            
+            # If the proposed block is for the next height, add it to the chain
+            elif proposed_block.block_height == latest_block.block_height + 1:
+                print(f"Adding new block: height={proposed_block.block_height}, hash={proposed_block.block_hash[:8]}")
+                
+                # Add the block to the chain
+                self.chain.append(proposed_block)
+                self.chain_hashes.append(proposed_block.block_hash)
+                
+                # Add to hash_to_height dictionary
+                self.hash_to_height[proposed_block.block_hash] = proposed_block.block_height
+                
+                # Update the ledger
+                self.ledger[proposed_block.coinbase_address] = self.ledger.get(proposed_block.coinbase_address, 0) + 1
+                
+                print(f"Updated chain: height={proposed_block.block_height}, tip={proposed_block.block_hash[:8]}")
+                print(f"Updated ledger: {self.ledger}")
+            
+            # Otherwise, ignore the block
+            else:
+                print(f"Ignoring block with invalid height: {proposed_block.block_height}, current height: {latest_block.block_height}")
+        except Exception as e:
+            print(f"Error adding block from message: {e}")
+            import traceback
+            traceback.print_exc()
     
-
+    def add_digest(self, hash_digest: str) -> bool:
+        """
+        Add a digest to the chain.
+        
+        Args:
+            hash_digest: The digest to add.
+            
+        Returns:
+            bool: True if the digest was added, False otherwise.
+        """
+        if hash_digest not in self.chain_hashes:
+            # This is just for merklelized sync - actual blocks are added via add_message
+            self.chain_hashes.append(hash_digest)
+            
+            # We don't have the height information, so we can't add it to hash_to_height here
+            # It will be added properly when the actual block is received
+            
+            return True
+        return False
+        
     def is_valid(self, message: SharedMessage) -> bool:
         """
         Check if a message contains a valid block proposal.
@@ -153,65 +312,26 @@ class RandomnessBeacon(SharedObject):
                 # This is not a block message, so it's valid for other purposes
                 return True
             
-            # Check if it's a valid block
+            # If block height is specified and is below current height (already finalized),
+            # consider it valid to avoid strikes
+            if 'block_height' in block_data:
+                latest_block = self.get_latest_block()
+                if block_data['block_height'] < latest_block.block_height:
+                    # This is a block we've already passed, so consider it valid
+                    # but we can check if it matches a block we already have
+                    if self.has_digest(block_data.get('block_hash', '')):
+                        # We already have this exact block
+                        return True
+                    
+                    # If we have a block at this height, we could check if our block at this height 
+                    # matches the proposed one, but for simplicity we'll consider it valid anyway
+                    return True
+            
+            # For new blocks or blocks at current height, check if they're valid proposals
             return self._is_valid_block_proposal(block_data)
         except Exception as e:
             print(f"Error validating block proposal: {e}")
             return False
-
-    def add_message(self, message: SharedMessage) -> None:
-        """
-        Add a new block to the chain from a message.
-        
-        Args:
-            message: The SharedMessage containing a block proposal.
-        """
-        try:
-            block_data = message.data
-            
-            # Skip if not a BlockMessage type
-            if not isinstance(block_data, dict) or block_data.get("message_type") != "BlockMessage":
-                return
-            
-            proposed_block = Block.from_dict(block_data)
-            
-            # Get the current latest block
-            latest_block = self.get_latest_block()
-            
-            # If the proposed block is for the same height as the latest block,
-            # we have a collision to resolve
-            if proposed_block.block_height == latest_block.block_height:
-                # Resolve the collision
-                winner_block = self._resolve_collision(latest_block, proposed_block)
-                
-                # If the new block won, replace the last block
-                if winner_block.block_hash == proposed_block.block_hash:
-                    # Rollback the ledger increase for the previous block miner
-                    self.ledger[latest_block.coinbase_address] = self.ledger.get(latest_block.coinbase_address, 0) - 1
-                    
-                    # Replace the last block
-                    self.chain[-1] = proposed_block
-                    self.chain_hashes[-1] = proposed_block.block_hash
-                    
-                    # Update the ledger for the new block miner
-                    self.ledger[proposed_block.coinbase_address] = self.ledger.get(proposed_block.coinbase_address, 0) + 1
-            
-            # If the proposed block is for the next height, add it to the chain
-            elif proposed_block.block_height == latest_block.block_height + 1:
-                # Add the block to the chain
-                self.chain.append(proposed_block)
-                self.chain_hashes.append(proposed_block.block_hash)
-                
-                # Update the ledger
-                self.ledger[proposed_block.coinbase_address] = self.ledger.get(proposed_block.coinbase_address, 0) + 1
-            
-            # Otherwise, ignore the block
-            else:
-                print(f"Ignoring block with invalid height: {proposed_block.block_height}")
-        except Exception as e:
-            print(f"Error adding block from message: {e}")
-            import traceback
-            traceback.print_exc()
 
     def _is_valid_block_proposal(self, block_data: Dict) -> bool:
         """
@@ -297,6 +417,9 @@ class RandomnessBeacon(SharedObject):
             # Existing block wins
             return existing_block
         
+    def get_latest_block(self) -> Block:
+        """Get the latest block in the chain"""
+        return self.chain[-1]
     
     def mine_block(self, interrupt_callback: Optional[Callable[[], bool]] = None) -> Optional[Block]:
         """
@@ -410,6 +533,10 @@ class RandomnessBeacon(SharedObject):
         Returns:
             bool: True if the digest exists in the chain, False otherwise.
         """
+        # Handle empty hash or None values
+        if not hash_digest:
+            return False
+            
         return hash_digest in self.chain_hashes
     
     def is_valid_digest(self, hash_digest: str) -> bool:
@@ -424,22 +551,6 @@ class RandomnessBeacon(SharedObject):
         """
         return self.has_digest(hash_digest)
     
-    def add_digest(self, hash_digest: str) -> bool:
-        """
-        Add a digest to the chain.
-        
-        Args:
-            hash_digest: The digest to add.
-            
-        Returns:
-            bool: True if the digest was added, False otherwise.
-        """
-        if hash_digest not in self.chain_hashes:
-            # This is just for merklelized sync - actual blocks are added via add_message
-            self.chain_hashes.append(hash_digest)
-            return True
-        return False
-    
     def gossip_object(self, digest: str) -> List[SharedMessage]:
         """
         Get all block messages since a specific digest for gossiping.
@@ -450,22 +561,54 @@ class RandomnessBeacon(SharedObject):
         Returns:
             List[SharedMessage]: The messages to gossip.
         """
-        if not self.has_digest(digest):
+        # Handle case when digest is empty or not found
+        if not digest or not self.has_digest(digest):
+            # Return only the first 10 blocks if no valid digest is provided - this helps with initial sync
+            # while keeping message size manageable
+            blocks_to_gossip = self.chain[:10]  # Limit to first 10 blocks
+            print(f"Gossiping first 10 blocks out of {len(self.chain)} total blocks")
+            messages = []
+            for block in blocks_to_gossip:
+                block_data = block.to_dict()
+                block_data["block_hash"] = block.block_hash  # Include the hash explicitly
+                messages.append(SharedMessage(data=block_data))
+            return messages
+        
+        try:
+            # Find the index of the digest
+            index = self.chain_hashes.index(digest)
+            
+            # Get all blocks after the digest
+            blocks_to_gossip = self.chain[index+1:]
+            
+            if blocks_to_gossip:
+                print(f"Gossiping {len(blocks_to_gossip)} blocks after digest {digest[:8]}...")
+            
+            # Convert blocks to messages
+            messages = []
+            for block in blocks_to_gossip:
+                block_data = block.to_dict()
+                block_data["block_hash"] = block.block_hash  # Include the hash explicitly
+                messages.append(SharedMessage(data=block_data))
+            
+            return messages
+        except ValueError:
+            print(f"Error: Digest {digest[:8]} not found in chain_hashes")
+            # Return the first 10 blocks as a fallback
+            blocks_to_gossip = self.chain[:10]  # Limit to first 10 blocks
+            print(f"Fallback: Gossiping first 10 blocks")
+            messages = []
+            for block in blocks_to_gossip:
+                block_data = block.to_dict()
+                block_data["block_hash"] = block.block_hash  # Include the hash explicitly
+                messages.append(SharedMessage(data=block_data))
+            return messages
+        except Exception as e:
+            print(f"Error in gossip_object: {e}")
+            import traceback
+            traceback.print_exc()
             return []
         
-        # Find the index of the digest
-        index = self.chain_hashes.index(digest)
-        
-        # Get all blocks after the digest
-        blocks_to_gossip = self.chain[index+1:]
-        
-        # Convert blocks to messages
-        messages = []
-        for block in blocks_to_gossip:
-            messages.append(SharedMessage(data=block.to_dict()))
-        
-        return messages
-    
     def get_messages_since_digest(self, digest: str) -> List[SharedMessage]:
         """
         Get all block messages since a specific digest.

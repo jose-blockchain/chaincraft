@@ -304,234 +304,359 @@ class TestRandomnessBeacon(unittest.TestCase):
         self.assertEqual(messages[1].data['block_height'], 5)
 
 
-# class TestRandomnessBeaconNode(unittest.TestCase):
-#     """Test the RandomnessBeaconNode functionality"""
+class TestRandomnessBeaconNode(unittest.TestCase):
+    """Test the RandomnessBeaconNode functionality"""
     
-#     def setUp(self):
-#         """Set up a test node"""
-#         self.node = RandomnessBeaconNode(persistent=False)
-#         self.node.start()
+    def setUp(self):
+        """Set up a test node"""
+        self.node = RandomnessBeaconNode(persistent=False)
+        self.node.start()
     
-#     def tearDown(self):
-#         """Clean up the test node"""
-#         self.node.stop_mining()
-#         self.node.close()
+    def tearDown(self):
+        """Clean up the test node"""
+        self.node.stop_mining()
+        self.node.close()
     
-#     def test_node_mining(self):
-#         """Test that the node can mine blocks"""
-#         # Start mining
-#         self.node.start_mining()
+    def test_node_mining(self):
+        """Test that the node can mine blocks"""
+        # Start mining
+        self.node.start_mining()
         
-#         # Wait for a block to be mined
-#         start_time = time.time()
-#         max_wait_time = 20  # seconds
+        # Wait for a block to be mined
+        start_time = time.time()
+        max_wait_time = 20  # seconds
         
-#         while time.time() - start_time < max_wait_time:
-#             if self.node.beacon.get_latest_block().block_height > 3:
-#                 break
-#             time.sleep(0.1)
+        while time.time() - start_time < max_wait_time:
+            if self.node.beacon.get_latest_block().block_height > 3:
+                break
+            time.sleep(0.1)
         
-#         # Stop mining
-#         self.node.stop_mining()
+        # Stop mining
+        self.node.stop_mining()
         
-#         # Check that at least one block was mined
-#         self.assertGreater(self.node.beacon.get_latest_block().block_height, 0)
+        # Check that at least one block was mined
+        self.assertGreater(self.node.beacon.get_latest_block().block_height, 0)
         
-#         # Check that the node's address got a reward
-#         address = self.node.beacon.coinbase_address
-#         self.assertGreaterEqual(self.node.beacon.ledger.get(address, 0), 1)
+        # Check that the node's address got a reward
+        address = self.node.beacon.coinbase_address
+        self.assertGreaterEqual(self.node.beacon.ledger.get(address, 0), 1)
         
-#         # Check the difficulty is fixed at 28
-#         latest_block = self.node.beacon.get_latest_block()
-#         self.assertEqual(latest_block.difficulty_bits, 23)
+        # Check the difficulty is fixed at 28
+        latest_block = self.node.beacon.get_latest_block()
+        self.assertEqual(latest_block.difficulty_bits, 23)
     
-#     def test_node_get_randomness(self):
-#         """Test getting randomness from the node"""
-#         # Mine a block
-#         self.node.start_mining()
+    def test_node_get_randomness(self):
+        """Test getting randomness from the node"""
+        # Mine a block
+        self.node.start_mining()
         
-#         # Wait for a block to be mined
-#         start_time = time.time()
-#         max_wait_time = 20  # seconds
+        # Wait for a block to be mined
+        start_time = time.time()
+        max_wait_time = 20  # seconds
         
-#         while time.time() - start_time < max_wait_time:
-#             if self.node.beacon.get_latest_block().block_height > 2:
-#                 break
-#             time.sleep(0.1)
+        while time.time() - start_time < max_wait_time:
+            if self.node.beacon.get_latest_block().block_height > 2:
+                break
+            time.sleep(0.1)
         
-#         # Stop mining
-#         self.node.stop_mining()
+        # Stop mining
+        self.node.stop_mining()
         
-#         # Get randomness from the node
-#         randomness = self.node.get_randomness()
+        # Get randomness from the node
+        randomness = self.node.get_randomness()
         
-#         # Check that the randomness is a valid hash
-#         self.assertEqual(len(randomness), 64)
+        # Check that the randomness is a valid hash
+        self.assertEqual(len(randomness), 64)
         
-#         # Get binary randomness
-#         binary_randomness = self.node.get_binary_randomness(length=128)
+        # Get binary randomness
+        binary_randomness = self.node.get_binary_randomness(length=128)
         
-#         # Check that the binary randomness is the correct length and format
-#         self.assertEqual(len(binary_randomness), 128)
-#         self.assertTrue(all(bit in "01" for bit in binary_randomness))
+        # Check that the binary randomness is the correct length and format
+        self.assertEqual(len(binary_randomness), 128)
+        self.assertTrue(all(bit in "01" for bit in binary_randomness))
 
 
-# class TestRandomnessBeaconNetwork(unittest.TestCase):
-#     """Test a network of RandomnessBeaconNodes"""
+class TestRandomnessBeaconNetwork(unittest.TestCase):
+    """Test a network of RandomnessBeaconNodes"""
     
-#     def setUp(self):
-#         """Set up a network of nodes"""
-#         self.num_nodes = 3
-#         self.nodes = create_randomness_beacon_network(self.num_nodes)
+    def setUp(self):
+        """Set up a network of nodes with a more robust connection pattern"""
+        self.num_nodes = 3
+        self.nodes = create_randomness_beacon_network(self.num_nodes)
+        # Ensure all nodes are connected to each other in a full mesh topology
+        self._ensure_ring_connectivity()
+        # Wait for initial connections to stabilize
+        time.sleep(4)
     
-#     def tearDown(self):
-#         """Clean up the network"""
-#         close_network(self.nodes)
+    def tearDown(self):
+        """Clean up the network with additional safeguards"""
+        try:
+            # Ensure mining is stopped first
+            for node in self.nodes:
+                if node.is_mining:
+                    node.stop_mining()
+            # Then close the network
+            close_network(self.nodes)
+        except Exception as e:
+            print(f"Error during tearDown: {e}")
+            import traceback
+            traceback.print_exc()
     
-#     def test_network_sync(self):
-#         """Test that blocks propagate through the network"""
-#         # Mine a block on the first node
-#         first_node = self.nodes[0]
-#         block = first_node.beacon.mine_block()
-#         message = SharedMessage(data=block.to_dict())
-#         first_node.broadcast(message.to_json())
+    def _ensure_full_mesh_connectivity(self):
+        """Ensure all nodes are connected to each other in a full mesh topology"""
+        for i in range(len(self.nodes)):
+            for j in range(len(self.nodes)):
+                if i != j:  # Don't connect to self
+                    self.nodes[i].connect_to_peer(self.nodes[j].host, self.nodes[j].port)
+    
+    def _ensure_ring_connectivity(self):
+        """Ensure nodes are connected in a ring topology"""
+        for i in range(len(self.nodes)):
+            next_node = (i + 1) % len(self.nodes)  # Connect to the next node in the ring
+            self.nodes[i].connect_to_peer(self.nodes[next_node].host, self.nodes[next_node].port)
+            self.nodes[next_node].connect_to_peer(self.nodes[i].host, self.nodes[i].port)
+
+    def _wait_for_sync(self, expected_height=None, max_wait_time=30):
+        """
+        Helper method to wait for network synchronization
         
-#         # First node should process it
-#         first_node.handle_message(
-#             message.to_json(),
-#             hashlib.sha256(message.to_json().encode()).hexdigest(),
-#             ("127.0.0.1", 0)
-#         )
-        
-#         # Wait for propagation
-#         start_time = time.time()
-#         max_wait_time = 10  # seconds
-        
-#         while time.time() - start_time < max_wait_time:
-#             # Check if all nodes have the block
-#             all_have_block = True
-#             for node in self.nodes:
-#                 if node.beacon.get_latest_block().block_height == 0:
-#                     all_have_block = False
-#                     break
+        Args:
+            expected_height: If provided, wait until all nodes reach this height
+            max_wait_time: Maximum time to wait in seconds
             
-#             if all_have_block:
-#                 break
+        Returns:
+            bool: True if sync was achieved, False if timeout occurred
+        """
+        print(f"Waiting for network sync (max {max_wait_time} seconds)...")
+        start_time = time.time()
+        sync_check_interval = 0.5  # Check every half second
+        
+        while time.time() - start_time < max_wait_time:
+            # Get current heights of all nodes
+            heights = [node.beacon.get_latest_block().block_height for node in self.nodes]
             
-#             time.sleep(0.1)
+            # If we're waiting for a specific height
+            if expected_height is not None:
+                if all(h >= expected_height for h in heights):
+                    print(f"All nodes reached height {expected_height} or higher")
+                    # Allow extra time for complete synchronization
+                    time.sleep(2)
+                    return True
+            # Otherwise just wait until all nodes have the same height
+            elif len(set(heights)) == 1:
+                print(f"All nodes synchronized at height {heights[0]}")
+                # Allow extra time for complete synchronization
+                time.sleep(2)
+                return True
+                
+            # Print progress every few seconds
+            elapsed = time.time() - start_time
+            if int(elapsed) % 5 == 0:
+                print(f"Current heights after {int(elapsed)}s: {heights}")
+                
+            time.sleep(sync_check_interval)
         
-#         # Check that all nodes have the block
-#         for node in self.nodes:
-#             self.assertEqual(node.beacon.get_latest_block().block_height, 1)
-#             self.assertEqual(node.beacon.get_latest_block().block_hash, block.block_hash)
-#             # Check that difficulty is fixed at 28
-#             self.assertEqual(node.beacon.get_latest_block().difficulty_bits, 23)
+        # If we get here, sync timed out
+        print(f"Sync timed out after {max_wait_time} seconds")
+        heights = [node.beacon.get_latest_block().block_height for node in self.nodes]
+        print(f"Final heights: {heights}")
+        return False
     
-#     def test_mining_in_network(self):
-#         """Test mining in the network"""
-#         # Start mining on all nodes
-#         start_mining_in_network(self.nodes)
+    def _create_valid_block_message(self, block):
+        """Create a valid block message with the BlockMessage type"""
+        block_data = block.to_dict()
+        block_data["message_type"] = "BlockMessage"
+        block_data["block_hash"] = block.block_hash
+        return SharedMessage(data=block_data)
+    
+    def test_network_sync(self):
+        """Test that blocks propagate through the network with robust waiting"""
+        # Mine a block on the first node
+        first_node = self.nodes[0]
+        print(f"Mining a block on first node...")
+        block = first_node.beacon.mine_block()
+        print(f"Mined block with height {block.block_height} and hash {block.block_hash[:8]}...")
         
-#         # Wait for some blocks to be mined
-#         time.sleep(10)
+        # Create a proper block message with BlockMessage type
+        message = self._create_valid_block_message(block)
         
-#         # Stop mining
-#         stop_mining_in_network(self.nodes)
+        # Broadcast to the network
+        print(f"Broadcasting block to the network...")
+        first_node.broadcast(message.to_json())
         
-#         # Check that some blocks were mined
-#         max_height = max(node.beacon.get_latest_block().block_height for node in self.nodes)
-#         self.assertGreater(max_height, 0)
+        # First node should process it
+        first_node.handle_message(
+            message.to_json(),
+            hashlib.sha256(message.to_json().encode()).hexdigest(),
+            ("127.0.0.1", 0)
+        )
         
-#         # Give some time for final sync
-#         time.sleep(2)
+        # Wait for propagation with our helper method
+        sync_success = self._wait_for_sync(expected_height=1, max_wait_time=20)
+        self.assertTrue(sync_success, "Network failed to synchronize within time limit")
         
-#         # Check that all nodes have synchronized to the same chain height
-#         heights = [node.beacon.get_latest_block().block_height for node in self.nodes]
-#         self.assertEqual(len(set(heights)), 1, f"Nodes have different heights: {heights}")
+        # Check that all nodes have the correct block
+        print("Verifying all nodes have the correct block...")
+        for i, node in enumerate(self.nodes):
+            self.assertEqual(
+                node.beacon.get_latest_block().block_height, 
+                1, 
+                f"Node {i} has incorrect height"
+            )
+            self.assertEqual(
+                node.beacon.get_latest_block().block_hash, 
+                block.block_hash, 
+                f"Node {i} has incorrect block hash"
+            )
+            self.assertEqual(
+                node.beacon.get_latest_block().difficulty_bits, 
+                23, 
+                f"Node {i} has incorrect difficulty bits"
+            )
+    
+    def test_mining_in_network(self):
+        """Test mining in the network with more robust synchronization checks"""
+        # Set target mining time and minimum expected blocks
+        mining_time = 30  # seconds
+        min_expected_blocks = 3
         
-#         # Check that the ledgers are consistent
-#         ledgers = []
-#         for node in self.nodes:
-#             ledger = {}
-#             for address, count in node.beacon.ledger.items():
-#                 ledger[address] = count
-#             ledgers.append(ledger)
+        print(f"Starting mining on all nodes for {mining_time} seconds...")
+        start_mining_in_network(self.nodes)
         
-#         # All ledgers should be the same
-#         for i in range(1, len(ledgers)):
-#             self.assertEqual(ledgers[0], ledgers[i], f"Ledger {i} is different from ledger 0")
+        # Wait with progress reporting
+        start_time = time.time()
+        try:
+            while time.time() - start_time < mining_time:
+                elapsed = int(time.time() - start_time)
+                if elapsed % 5 == 0:  # Report every 5 seconds
+                    heights = [node.beacon.get_latest_block().block_height for node in self.nodes]
+                    print(f"Mining progress after {elapsed}s: {heights}")
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("Mining interrupted by user")
+        finally:
+            print("Stopping mining on all nodes...")
+            stop_mining_in_network(self.nodes)
+        
+        # Check that sufficient blocks were mined
+        heights = [node.beacon.get_latest_block().block_height for node in self.nodes]
+        max_height = max(heights)
+        print(f"Maximum chain height after mining: {max_height}")
+        self.assertGreater(max_height, min_expected_blocks, 
+                         f"Expected at least {min_expected_blocks} blocks, but max height is {max_height}")
+        
+        # Give time for final sync with progress reporting
+        print("Waiting for final network synchronization...")
+        sync_success = self._wait_for_sync(max_wait_time=5)
+        self.assertTrue(sync_success, "Network failed to achieve final synchronization")
+        
+        # Verify final synchronization
+        print("Verifying final network state...")
+        
+        # Check that all nodes have synchronized to the same chain height
+        heights = [node.beacon.get_latest_block().block_height for node in self.nodes]
+        self.assertEqual(len(set(heights)), 1, f"Nodes have different heights: {heights}")
+        
+        # Check that the ledgers are consistent
+        ledgers = []
+        for node in self.nodes:
+            ledger = {}
+            for address, count in node.beacon.ledger.items():
+                ledger[address] = count
+            ledgers.append(ledger)
+        
+        # Print the ledgers for debugging
+        print("Final ledger state:")
+        for i, ledger in enumerate(ledgers):
+            print(f"Node {i} ledger: {ledger}")
+        
+        # All ledgers should be the same
+        for i in range(1, len(ledgers)):
+            self.assertEqual(
+                ledgers[0], 
+                ledgers[i], 
+                f"Ledger {i} is different from ledger 0"
+            )
             
-#         # Check that difficulty is fixed at 28 across all nodes
-#         difficulty_bits = [node.beacon.get_latest_block().difficulty_bits for node in self.nodes]
-#         self.assertTrue(all(d == 23 for d in difficulty_bits), f"Not all nodes have difficulty = 23: {difficulty_bits}")
-    
-#     def test_mining_interrupt(self):
-#         """Test that mining is interrupted when a block is received"""
-#         # Start mining on first node
-#         first_node = self.nodes[0]
-#         first_node.start_mining()
+        # Check that difficulty is fixed at 23 across all nodes
+        difficulty_bits = [node.beacon.get_latest_block().difficulty_bits for node in self.nodes]
+        self.assertTrue(
+            all(d == 23 for d in difficulty_bits), 
+            f"Not all nodes have difficulty = 23: {difficulty_bits}"
+        )
         
-#         # Wait for a block to be mined
-#         start_time = time.time()
-#         max_wait_time = 10  # seconds
+        # Print final block statistics
+        final_height = heights[0]
+        print(f"Test completed successfully. All nodes synchronized at height {final_height}")
+
+    def test_mining_interrupt(self):
+        """Test that mining is interrupted when a block is received"""
+        # Start mining on first node
+        first_node = self.nodes[0]
+        first_node.start_mining()
         
-#         while time.time() - start_time < max_wait_time:
-#             if first_node.beacon.get_latest_block().block_height > 0:
-#                 break
-#             time.sleep(0.1)
+        # Wait for a block to be mined
+        start_time = time.time()
+        max_wait_time = 10  # seconds
         
-#         # Stop mining on the first node
-#         first_node.stop_mining()
+        while time.time() - start_time < max_wait_time:
+            if first_node.beacon.get_latest_block().block_height > 0:
+                break
+            time.sleep(0.1)
         
-#         # Get the latest block from the first node
-#         latest_block = first_node.beacon.get_latest_block()
-#         self.assertGreater(latest_block.block_height, 0)
+        # Stop mining on the first node
+        first_node.stop_mining()
         
-#         # Start mining on second node
-#         second_node = self.nodes[1]
-#         second_node.start_mining()
+        # Get the latest block from the first node
+        latest_block = first_node.beacon.get_latest_block()
+        self.assertGreater(latest_block.block_height, 0)
         
-#         # Let the second node mine for a bit
-#         time.sleep(0.5)
+        # Start mining on second node
+        second_node = self.nodes[1]
+        second_node.start_mining()
         
-#         # Create a block with a higher height than what second_node is mining
-#         next_block = Block(
-#             coinbase_address=first_node.beacon.coinbase_address,
-#             prev_block_hash=latest_block.block_hash,
-#             block_height=latest_block.block_height + 1,
-#             timestamp=time.time() * 1000,
-#             nonce=123456
-#         )
+        # Let the second node mine for a bit
+        time.sleep(0.5)
         
-#         # Make it a valid block
-#         challenge = next_block.coinbase_address + next_block.prev_block_hash
-#         pow_primitive = ProofOfWorkPrimitive(difficulty_bits=28)
-#         nonce = pow_primitive.create_proof(challenge)
+        # Create a block with a higher height than what second_node is mining
+        next_block = Block(
+            coinbase_address=first_node.beacon.coinbase_address,
+            prev_block_hash=latest_block.block_hash,
+            block_height=latest_block.block_height + 1,
+            timestamp=time.time() * 1000,
+            nonce=123456
+        )
         
-#         next_block = Block(
-#             coinbase_address=next_block.coinbase_address,
-#             prev_block_hash=next_block.prev_block_hash,
-#             block_height=next_block.block_height,
-#             timestamp=next_block.timestamp,
-#             nonce=nonce
-#         )
+        # Make it a valid block
+        challenge = next_block.coinbase_address + next_block.prev_block_hash
+        pow_primitive = ProofOfWorkPrimitive(difficulty_bits=23)
+        nonce = pow_primitive.create_proof(challenge)
         
-#         # Send the block to the second node
-#         message = SharedMessage(data=next_block.to_dict())
-#         second_node.handle_message(
-#             message.to_json(),
-#             hashlib.sha256(message.to_json().encode()).hexdigest(),
-#             ("127.0.0.1", 0)
-#         )
+        next_block = Block(
+            coinbase_address=next_block.coinbase_address,
+            prev_block_hash=next_block.prev_block_hash,
+            block_height=next_block.block_height,
+            timestamp=next_block.timestamp,
+            nonce=nonce
+        )
         
-#         # Wait a bit to let the second node process the block and reset mining
-#         time.sleep(1)
+        # Send the block to the second node
+        print(f"Sending block {next_block.block_height} to second node")
+        message = SharedMessage(data=next_block.to_dict())
+        second_node.handle_message(
+            message.to_json(),
+            hashlib.sha256(message.to_json().encode()).hexdigest(),
+            ("127.0.0.1", 0)
+        )
         
-#         # Check that the second node accepted the block
-#         self.assertEqual(second_node.beacon.get_latest_block().block_hash, next_block.block_hash)
+        # Wait a bit to let the second node process the block and reset mining
+        time.sleep(1)
         
-#         # Stop mining on the second node
-#         second_node.stop_mining()
+        # Check that the second node accepted the block
+        self.assertEqual(second_node.beacon.get_latest_block().block_hash, next_block.block_hash)
+        
+        # Stop mining on the second node
+        second_node.stop_mining()
 
 
 if __name__ == "__main__":
