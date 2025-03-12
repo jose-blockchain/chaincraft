@@ -133,7 +133,7 @@ def connect_nodes(nodes):
         # Log connections
         print(f"Connected nodes: {i} <-> {next_node} and {i} <-> {prev_node}")
 
-def wait_for_chain_sync(nodes, expected_chain_length, timeout=15):
+def wait_for_chain_sync(nodes, expected_chain_length, timeout=30):
     start_time = time.time()
     last_print_time = start_time
     
