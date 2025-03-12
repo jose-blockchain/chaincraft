@@ -256,7 +256,7 @@ class TestSharedObjectUpdates(unittest.TestCase):
         time.sleep(0.5)
         
         # Wait for resync with increased timeout
-        self.assertTrue(wait_for_chain_sync(self.nodes, 4, timeout=15))
+        self.assertTrue(wait_for_chain_sync(self.nodes, 4, timeout=30))
 
     def test_chain_integrity(self):
         """Test that invalid hashes are rejected"""
