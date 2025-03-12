@@ -186,6 +186,7 @@ class TestSharedObjectUpdates(unittest.TestCase):
         for _ in range(3):
             next_hash = chain_obj.add_next_hash()
             print(f"Added new hash: {next_hash}")
+            self.nodes[0].create_shared_message(next_hash)
         
         # Wait for the chain to sync across all nodes
         self.assertTrue(wait_for_chain_sync(self.nodes, 4))
