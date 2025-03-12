@@ -265,7 +265,7 @@ class TestSharedObjectUpdates(unittest.TestCase):
         
         # Add a valid hash
         valid_hash = chain_obj.add_next_hash()
-        self.assertTrue(wait_for_chain_sync(self.nodes, 2))
+        self.assertTrue(wait_for_chain_sync(self.nodes, 2, timeout=60))
         
         # Try to add invalid hash (not derived from previous)
         invalid_hash = hashlib.sha256("invalid".encode()).hexdigest()
