@@ -6,21 +6,21 @@ Chaincraft is a Python-based framework for building and experimenting with block
 
 ## Key Features
 
-- **Decentralized Network**: Built-in peer discovery, connection management, and message propagation
-- **Shared Objects**: Extensible framework for maintaining distributed state across nodes
-- **Cryptographic Primitives**: Implementation of essential blockchain cryptography
-- **Persistence**: Optional persistent storage for nodes and messages
-- **Data Validation**: Type checking and schema validation for messages
-- **Merklelized Storage**: Support for efficient state synchronization
+- **Decentralized Network**: Built-in peer discovery, connection management, and message propagation  
+- **Shared Objects**: Extensible framework for maintaining distributed state across nodes  
+- **Cryptographic Primitives**: Implementation of essential blockchain cryptography  
+- **Persistence**: Optional persistent storage for nodes and messages  
+- **Data Validation**: Type checking and schema validation for messages  
+- **Merklelized Storage**: Support for efficient state synchronization  
 
 ## Architecture
 
 Chaincraft is built on several core components:
 
-- `ChaincraftNode`: Handles networking, peer discovery, and message gossip
-- `SharedMessage`: Wraps and serializes data for network transmission
-- `SharedObject`: Abstract base class for implementing distributed data structures
-- Cryptographic primitives: PoW, VDF, ECDSA, and VRF implementations
+- `ChaincraftNode`: Handles networking, peer discovery, and message gossip  
+- `SharedMessage`: Wraps and serializes data for network transmission  
+- `SharedObject`: Abstract base class for implementing distributed data structures  
+- **Cryptographic primitives**: PoW, VDF, ECDSA, and VRF implementations  
 
 ## Usage
 
@@ -45,6 +45,8 @@ node.create_shared_message("Hello, Chaincraft!")
 ```python
 from shared_object import SharedObject
 from shared_message import SharedMessage
+import hashlib
+import json
 
 class MySharedState(SharedObject):
     def __init__(self):
@@ -60,7 +62,6 @@ class MySharedState(SharedObject):
         self.state[message.data["key"]] = message.data["value"]
         self.chain.append(message.data)
         
-    # Implement other required methods for merklelized storage
     def is_merkelized(self) -> bool:
         return True
         
@@ -89,34 +90,36 @@ is_valid = pow_primitive.verify_proof(challenge, nonce, hash_hex)
 
 Chaincraft provides the building blocks for implementing various blockchain designs:
 
-- **Proof of Work Blockchains**: Using the PoW primitive
-- **State-Based Applications**: Using SharedObjects for consensus
-- **Transaction Validation**: Using the message validation framework
-- **Custom Consensus Mechanisms**: By extending SharedObjects with validation rules
+- **Proof of Work Blockchains**: Using the PoW primitive  
+- **State-Based Applications**: Using `SharedObject`s for consensus  
+- **Transaction Validation**: Using the message validation framework  
+- **Custom Consensus Mechanisms**: By extending `SharedObject`s with validation rules  
 
 ## Examples
 
-The project includes example implementations:
+The project includes various **examples**:
 
-- **Simple Blockchain**: A basic blockchain with PoW consensus
-- **Message Chain**: A merklelized append-only log of messages
-- **ECDSA Transactions**: Signed transactions with balance tracking
+- **Simple Blockchain**: A basic blockchain with PoW consensus  
+- **Message Chain**: A merklelized append-only log of messages  
+- **ECDSA Transactions**: Signed transactions with balance tracking  
+- **Chatroom**: A real-time chat example with auto-accept membership  
+  - See [`examples/chatroom.md`](examples/chatroom.md) for details!
 
 ## Running Tests
 
-Run all tests:
+Run **all tests**:
 
 ```bash
 python -m unittest discover -v -s tests
 ```
 
-Run a specific test file:
+Run a **specific test file**:
 
 ```bash
 python -m unittest tests/test_blockchain_example.py
 ```
 
-Run a specific test:
+Run a **specific test**:
 
 ```bash
 python -m unittest -v -k test_local_discovery_enabled tests/test_local_discovery.py
@@ -126,13 +129,11 @@ python -m unittest -v -k test_local_discovery_enabled tests/test_local_discovery
 
 Chaincraft is designed to help explore blockchain tradeoffs:
 
-- **Blockchain Trilemma**:
+- **Blockchain Trilemma**:  
   - Security vs. Scalability vs. Decentralization
-
-- **Time Synchronization**:
+- **Time Synchronization**:  
   - Asynchronous vs. Time-Bounded vs. Synchronized
-
-- **Identity Models**:
+- **Identity Models**:  
   - Anonymous vs. Resource-Based vs. Identity-Based
 
 ## Contributing
@@ -141,25 +142,25 @@ Contributions to Chaincraft are welcome! This is an educational project aimed at
 
 ## Current Status (Roadmap)
 
-- ✅ Gossip Protocol: Sharing JSON messages between nodes
-- ✅ Persistent Storage: Key-value storage for messages
-- ✅ Peer Discovery: Global and local node discovery
-- ✅ Message Validation: Field and type validation with peer banning
-- ✅ Shared Objects: State synchronization between nodes
-- ✅ Merklelized Storage: Efficient state synchronization
-- ⬜ Additional Cryptographic Primitives
-- ⬜ Indexing (MongoDB-like)
-- ⬜ Transaction Validation
-- ⬜ Consensus Mechanisms
-- ⬜ Smart Contracts
-- ⬜ State Machine Replication
-- ⬜ Sharding
-- ⬜ Proof of Stake
-- ⬜ Proof of Authority
-- ⬜ Proof of Elapsed Time
-- ⬜ Proof of Stake with VRF
-- ⬜ Proof of Stake with VDF
-- ⬜ Proof of Stake with PoW
-- ⬜ Proof of Stake with PoW and VDF
-- ⬜ Proof of Stake with PoW and VRF
-- ⬜ Proof of Stake with PoW and VDF and VRF
+- ✅ Gossip Protocol: Sharing JSON messages between nodes  
+- ✅ Persistent Storage: Key-value storage for messages  
+- ✅ Peer Discovery: Global and local node discovery  
+- ✅ Message Validation: Field and type validation with peer banning  
+- ✅ Shared Objects: State synchronization between nodes  
+- ✅ Merklelized Storage: Efficient state synchronization  
+- ⬜ Additional Cryptographic Primitives  
+- ⬜ Indexing (MongoDB-like)  
+- ⬜ Transaction Validation  
+- ⬜ Consensus Mechanisms  
+- ⬜ Smart Contracts  
+- ⬜ State Machine Replication  
+- ⬜ Sharding  
+- ⬜ Proof of Stake  
+- ⬜ Proof of Authority  
+- ⬜ Proof of Elapsed Time  
+- ⬜ Proof of Stake with VRF  
+- ⬜ Proof of Stake with VDF  
+- ⬜ Proof of Stake with PoW  
+- ⬜ Proof of Stake with PoW and VDF  
+- ⬜ Proof of Stake with PoW and VRF  
+- ⬜ Proof of Stake with PoW and VDF and VRF  
