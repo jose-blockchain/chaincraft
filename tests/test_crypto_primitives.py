@@ -1,5 +1,3 @@
-# tests/test_crypto_primitives.py
-
 import unittest
 import time
 import hashlib
@@ -8,6 +6,7 @@ from crypto_primitives.pow import ProofOfWorkPrimitive
 from crypto_primitives.vdf import VDFPrimitive
 from crypto_primitives.ecdsa_sign import ECDSASignaturePrimitive
 from crypto_primitives.vrf import ECDSAVRFPrimitive
+
 
 class TestCryptoPrimitives(unittest.TestCase):
 
@@ -59,6 +58,36 @@ class TestCryptoPrimitives(unittest.TestCase):
         wrong_message = b"Goodbye ECDSA"
         self.assertFalse(ecdsa_primitive.verify(wrong_message, sig))
 
+    def test_ecdsa_key_export_import(self):
+        """
+        Test the public key export (PEM) and re-import:
+          1. Generate key
+          2. Export the public key to PEM
+          3. Create a brand new ECDSASignaturePrimitive, load the PEM
+          4. Ensure it can verify signatures from the original private key
+        """
+        original = ECDSASignaturePrimitive()
+        original.generate_key()
+
+        # Sign a test message
+        message = b"Chaincraft Testing"
+        signature = original.sign(message)
+
+        # Export public key to PEM
+        pub_pem = original.get_public_pem()
+        self.assertIsInstance(pub_pem, str)
+        self.assertIn("BEGIN PUBLIC KEY", pub_pem)
+
+        # Create a new instance, load the pubkey
+        verifier = ECDSASignaturePrimitive()
+        verifier.load_pub_key_from_pem(pub_pem)
+
+        # Check that the new instance can verify the signature
+        self.assertTrue(verifier.verify(message, signature))
+
+        # Negative check
+        self.assertFalse(verifier.verify(b"Other message", signature))
+
     def test_ecdsa_vrf(self):
         vrf_primitive = ECDSAVRFPrimitive()
         vrf_primitive.generate_key()
@@ -76,6 +105,7 @@ class TestCryptoPrimitives(unittest.TestCase):
         # Negative check
         wrong_message = b"Attack VRF"
         self.assertFalse(vrf_primitive.verify(wrong_message, proof))
+
 
 if __name__ == "__main__":
     unittest.main()

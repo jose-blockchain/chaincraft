@@ -1,5 +1,3 @@
-# crypto_primitives/ecdsa_sign.py
-
 try:
     import ecdsa
 except ImportError:
@@ -7,14 +5,15 @@ except ImportError:
 
 from .abstract import KeyCryptoPrimitive
 
+
 class ECDSASignaturePrimitive(KeyCryptoPrimitive):
     """
     ECDSA signature generation/verification using the ecdsa library.
     """
 
     def __init__(self):
-        self.private_key = None
-        self.public_key = None
+        self.private_key = None  # ecdsa.SigningKey
+        self.public_key = None   # ecdsa.VerifyingKey
 
     def generate_key(self):
         """
@@ -35,6 +34,9 @@ class ECDSASignaturePrimitive(KeyCryptoPrimitive):
     def verify(self, data: bytes, signature: bytes, pub_key=None) -> bool:
         """
         Verify the signature using the provided public key (or the internally stored public key).
+        :param data: raw bytes that were signed
+        :param signature: signature bytes
+        :param pub_key: ecdsa.VerifyingKey (if not provided, we use self.public_key)
         """
         if pub_key is None:
             if not self.public_key:
@@ -46,3 +48,18 @@ class ECDSASignaturePrimitive(KeyCryptoPrimitive):
             return True
         except ecdsa.BadSignatureError:
             return False
+
+    def get_public_pem(self) -> str:
+        """
+        Return the public key as a PEM-encoded string.
+        """
+        if not self.public_key:
+            raise ValueError("Public key not available (generate_key or set_key first).")
+        # to_pem() returns bytes; we decode to str for convenience
+        return self.public_key.to_pem().decode("ascii")
+
+    def load_pub_key_from_pem(self, pem_str: str):
+        """
+        Load a PEM-encoded public key and store it as self.public_key.
+        """
+        self.public_key = ecdsa.VerifyingKey.from_pem(pem_str)
