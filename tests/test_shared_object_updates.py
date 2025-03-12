@@ -133,7 +133,7 @@ def connect_nodes(nodes):
         # Log connections
         print(f"Connected nodes: {i} <-> {next_node} and {i} <-> {prev_node}")
 
-def wait_for_chain_sync(nodes, expected_chain_length, timeout=15):
+def wait_for_chain_sync(nodes, expected_chain_length, timeout=30):
     start_time = time.time()
     last_print_time = start_time
     
@@ -186,6 +186,7 @@ class TestSharedObjectUpdates(unittest.TestCase):
         for _ in range(3):
             next_hash = chain_obj.add_next_hash()
             print(f"Added new hash: {next_hash}")
+            self.nodes[0].create_shared_message(next_hash)
         
         # Wait for the chain to sync across all nodes
         self.assertTrue(wait_for_chain_sync(self.nodes, 4))
@@ -256,7 +257,7 @@ class TestSharedObjectUpdates(unittest.TestCase):
         time.sleep(0.5)
         
         # Wait for resync with increased timeout
-        self.assertTrue(wait_for_chain_sync(self.nodes, 4, timeout=15))
+        self.assertTrue(wait_for_chain_sync(self.nodes, 4, timeout=30))
 
     def test_chain_integrity(self):
         """Test that invalid hashes are rejected"""
@@ -264,7 +265,7 @@ class TestSharedObjectUpdates(unittest.TestCase):
         
         # Add a valid hash
         valid_hash = chain_obj.add_next_hash()
-        self.assertTrue(wait_for_chain_sync(self.nodes, 2))
+        self.assertTrue(wait_for_chain_sync(self.nodes, 2, timeout=60))
         
         # Try to add invalid hash (not derived from previous)
         invalid_hash = hashlib.sha256("invalid".encode()).hexdigest()

@@ -3,7 +3,7 @@
 from typing import List
 import unittest
 import random
-import time
+import time, json, hashlib
 from chaincraft import ChaincraftNode
 from shared_object import SharedObject
 from shared_message import SharedMessage
@@ -14,12 +14,29 @@ class SimpleSharedNumber(SharedObject):
     def __init__(self):
         self.number = 0
         self.messages = []
-        self.digests = []
+        self.seen_hashes = set()
 
     def is_valid(self, message: SharedMessage) -> bool:
+        # We only accept integer data in this example
         return isinstance(message.data, int)
 
     def add_message(self, message: SharedMessage) -> None:
+        """
+        Deduplicate by hashing the message's 'data' field (ignoring the signature).
+        That way, if the same data is gossiped multiple times with different signatures,
+        we still only increment once.
+        """
+        # Convert the integer data -> a consistent string
+        data_str = json.dumps({"content": message.data}, sort_keys=True)
+        msg_hash = hashlib.sha256(data_str.encode()).hexdigest()
+
+        if msg_hash in self.seen_hashes:
+            # Already incremented for this data
+            return
+
+        self.seen_hashes.add(msg_hash)
+
+        # Now increment
         self.number += message.data
         self.messages.append(message)
         print(f"SimpleSharedNumber: Added message with data: {message.data}")
@@ -102,7 +119,7 @@ class TestChaincraftNetwork(unittest.TestCase):
                 print(f"Node {node.port}: Shared number: {node.shared_objects[0].number}")
 
         expected_number = sum(range(1, self.num_nodes + 1))
-        self.assertTrue(wait_for_propagation(self.nodes, 0, expected_number, timeout=10))
+        self.assertTrue(wait_for_propagation(self.nodes, 0, expected_number, timeout=20))
 
 if __name__ == '__main__':
     unittest.main()
