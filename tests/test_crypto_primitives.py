@@ -6,6 +6,7 @@ from crypto_primitives.pow import ProofOfWorkPrimitive
 from crypto_primitives.vdf import VDFPrimitive
 from crypto_primitives.ecdsa_sign import ECDSASignaturePrimitive
 from crypto_primitives.vrf import ECDSAVRFPrimitive
+from crypto_primitives.encrypt import SymmetricEncryption
 
 
 class TestCryptoPrimitives(unittest.TestCase):
@@ -105,6 +106,65 @@ class TestCryptoPrimitives(unittest.TestCase):
         # Negative check
         wrong_message = b"Attack VRF"
         self.assertFalse(vrf_primitive.verify(wrong_message, proof))
+
+
+
+
+class TestSymmetricEncryption(unittest.TestCase):
+    def setUp(self):
+        """
+        Set up a new encryption instance for each test.
+        """
+        self.primitive = SymmetricEncryption()
+        self.test_data = b"Hello, Chaincraft!"
+
+    def test_encryption_decryption(self):
+        """
+        Test that encrypted data can be successfully decrypted.
+        """
+        encrypted = self.primitive.encrypt(self.test_data)
+        decrypted = self.primitive.decrypt(encrypted)
+        self.assertEqual(decrypted, self.test_data)
+
+    def test_encryption_with_same_key(self):
+        """
+        Test encryption and decryption using the same key across instances.
+        """
+        key = self.primitive.key
+        new_primitive = SymmetricEncryption(key)
+
+        encrypted = new_primitive.encrypt(self.test_data)
+        decrypted = new_primitive.decrypt(encrypted)
+
+        self.assertEqual(decrypted, self.test_data)
+
+    def test_decryption_fails_with_different_key(self):
+        """
+        Ensure decryption fails when using a different key.
+        """
+        encrypted = self.primitive.encrypt(self.test_data)
+
+        new_primitive = SymmetricEncryption()  # Generates a new key
+        with self.assertRaises(Exception):
+            new_primitive.decrypt(encrypted)
+
+    def test_generate_new_key(self):
+        """
+        Test that generating a new key replaces the old one.
+        """
+        old_key = self.primitive.key
+        new_key = self.primitive.generate_key()
+
+        self.assertNotEqual(old_key, new_key)
+        self.assertIsInstance(new_key, bytes)
+
+    def test_encrypt_empty_string(self):
+        """
+        Test encrypting an empty string.
+        """
+        encrypted = self.primitive.encrypt(b"")
+        decrypted = self.primitive.decrypt(encrypted)
+        self.assertEqual(decrypted, b"")
 
 
 if __name__ == "__main__":
