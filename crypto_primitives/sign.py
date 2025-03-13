@@ -1,3 +1,5 @@
+# crypto_primitives/ecdsa_sign.py
+
 try:
     import ecdsa
 except ImportError:
@@ -63,3 +65,16 @@ class ECDSASignaturePrimitive(KeyCryptoPrimitive):
         Load a PEM-encoded public key and store it as self.public_key.
         """
         self.public_key = ecdsa.VerifyingKey.from_pem(pem_str)
+
+    def encrypt(self, plaintext: bytes) -> bytes:
+        """
+        Placeholder: ECDSA does not support encryption.
+        """
+        raise NotImplementedError("ECDSA does not support encryption")
+
+    def decrypt(self, ciphertext: bytes) -> bytes:
+        """
+        Placeholder: ECDSA does not support decryption.
+        """
+        raise NotImplementedError("ECDSA does not support decryption")
+    

@@ -33,7 +33,7 @@ class KeylessCryptoPrimitive(CryptoPrimitive):
 class KeyCryptoPrimitive(CryptoPrimitive):
     """
     Abstract base class for crypto primitives that DO require a private key.
-    E.g., ECDSA, VRF, etc.
+    E.g., ECDSA, VRF, Symmetric Encryption, etc.
     """
 
     @abstractmethod
@@ -54,5 +54,19 @@ class KeyCryptoPrimitive(CryptoPrimitive):
     def verify(self, data: bytes, signature: bytes, pub_key=None, *args, **kwargs) -> bool:
         """
         Verify a signature (with or without explicitly passed public key).
+        """
+        pass
+
+    @abstractmethod
+    def encrypt(self, plaintext: bytes) -> bytes:
+        """
+        Encrypt plaintext using the private key or a derived key.
+        """
+        pass
+
+    @abstractmethod
+    def decrypt(self, ciphertext: bytes) -> bytes:
+        """
+        Decrypt ciphertext using the private key or a derived key.
         """
         pass

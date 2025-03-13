@@ -57,3 +57,15 @@ class ECDSAVRFPrimitive(KeyCryptoPrimitive):
         """
         # Real VRFs use special encoding; this is a naive approach:
         return hashlib.sha256(signature).digest()
+
+    def encrypt(self, plaintext: bytes) -> bytes:
+        """
+        Placeholder: VRF does not support encryption.
+        """
+        raise NotImplementedError("VRF does not support encryption")
+
+    def decrypt(self, ciphertext: bytes) -> bytes:
+        """
+        Placeholder: VRF does not support decryption.
+        """
+        raise NotImplementedError("VRF does not support decryption")
