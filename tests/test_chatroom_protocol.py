@@ -8,7 +8,7 @@ from shared_message import SharedMessage
 from examples.chatroom_protocol import ChatroomObject
 
 # Import ECDSA for signing and verifying
-from crypto_primitives.ecdsa_sign import ECDSASignaturePrimitive
+from crypto_primitives.sign import ECDSASignaturePrimitive
 
 
 def get_post_messages(chat_obj, room_name):

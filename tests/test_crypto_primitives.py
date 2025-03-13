@@ -4,7 +4,7 @@ import hashlib
 
 from crypto_primitives.pow import ProofOfWorkPrimitive
 from crypto_primitives.vdf import VDFPrimitive
-from crypto_primitives.ecdsa_sign import ECDSASignaturePrimitive
+from crypto_primitives.sign import ECDSASignaturePrimitive
 from crypto_primitives.vrf import ECDSAVRFPrimitive
 from crypto_primitives.encrypt import SymmetricEncryption
 
