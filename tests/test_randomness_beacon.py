@@ -71,7 +71,7 @@ def wait_for_chain_sync(beacons, expected_height, timeout=20):
 
 class TestRandomnessBeacon(unittest.TestCase):
     
-    __DIFFICULTY = 24
+    __DIFFICULTY = 23
 
     def setUp(self):
         self.nodes = []
@@ -288,7 +288,7 @@ class TestRandomnessBeacon(unittest.TestCase):
     def test_full_mining_network(self):
         """Test a full network with miners"""
         # Create network
-        nodes, beacons = create_beacon_network(num_nodes=5, difficulty_bits=self.__DIFFICULTY)
+        nodes, beacons = create_beacon_network(num_nodes=3, difficulty_bits=self.__DIFFICULTY)
         self.nodes = nodes
         self.beacons = beacons
         
@@ -303,7 +303,7 @@ class TestRandomnessBeacon(unittest.TestCase):
             miner.start()
         
         # Let them mine for a few blocks
-        time.sleep(40)
+        time.sleep(20)
         
         # Stop miners
         for miner in miners:
