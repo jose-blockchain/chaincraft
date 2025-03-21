@@ -131,58 +131,64 @@ class RandomnessBeacon(SharedObject):
                     self.block_replacement_event.set()
 
     def _handle_replacement(self, new_block):
-            """Handle potential replacement of the last block"""
-            current_last = self.blocks[-1]
+        """Handle potential replacement of the last block"""
+        current_last = self.blocks[-1]
+        
+        # Skip if trying to replace genesis
+        if current_last["blockHeight"] == 0:
+            return
             
-            # Skip if trying to replace genesis
-            if current_last["blockHeight"] == 0:
-                return
-                
-            # Only replace if both blocks are at exactly the same height
-            if current_last["blockHeight"] != new_block["blockHeight"]:
-                print(f"Height mismatch: current={current_last['blockHeight']}, new={new_block['blockHeight']} - not replacing")
-                return
-                
-            # Compare lexicographical ordering of block hashes
-            # Lower hash value wins (lexicographically smaller)
-            current_hash = current_last["blockHash"]
-            new_hash = new_block["blockHash"]
+        # Only replace if both blocks are at exactly the same height
+        if current_last["blockHeight"] != new_block["blockHeight"]:
+            print(f"Height mismatch: current={current_last['blockHeight']}, new={new_block['blockHeight']} - not replacing")
+            return
             
-            is_own_block = current_last["coinbaseAddress"] == self.coinbase_address
+        # Only replace if both blocks have the same previous block hash
+        if current_last["prevBlockHash"] != new_block["prevBlockHash"]:
+            print(f"Previous hash mismatch: current={current_last['prevBlockHash'][:8]}..., new={new_block['prevBlockHash'][:8]}... - not replacing")
+            return
             
-            print(f"Collision detected at height {current_last['blockHeight']}")
-            print(f"Current hash: {current_hash}")
-            print(f"New hash: {new_hash}")
-            print(f"Is new < current? {new_hash < current_hash}")
-            print(f"Is replacing our own block? {is_own_block}")
+        # Compare lexicographical ordering of block hashes
+        # Lower hash value wins (lexicographically smaller)
+        current_hash = current_last["blockHash"]
+        new_hash = new_block["blockHash"]
+        
+        is_own_block = current_last["coinbaseAddress"] == self.coinbase_address
+        
+        print(f"Collision detected at height {current_last['blockHeight']}")
+        print(f"Current hash: {current_hash}")
+        print(f"New hash: {new_hash}")
+        print(f"Common prevBlockHash: {current_last['prevBlockHash'][:8]}...")
+        print(f"Is new < current? {new_hash < current_hash}")
+        print(f"Is replacing our own block? {is_own_block}")
+        
+        if new_hash < current_hash:  # Lower lexicographical hash value wins
+            print("New block is better - replacing current block")
+            # Decrease ledger for old miner
+            old_addr = current_last["coinbaseAddress"]
+            if old_addr in self.ledger and self.ledger[old_addr] > 0:
+                self.ledger[old_addr] -= 1
+                
+            # Remove old block from hash map
+            old_hash = current_last["blockHash"]
+            if old_hash in self.block_by_hash:
+                del self.block_by_hash[old_hash]
+                
+            # Remove old block from chain
+            self.blocks.pop()
             
-            if new_hash < current_hash:  # Lower lexicographical hash value wins
-                print("New block is better - replacing current block")
-                # Decrease ledger for old miner
-                old_addr = current_last["coinbaseAddress"]
-                if old_addr in self.ledger and self.ledger[old_addr] > 0:
-                    self.ledger[old_addr] -= 1
-                    
-                # Remove old block from hash map
-                old_hash = current_last["blockHash"]
-                if old_hash in self.block_by_hash:
-                    del self.block_by_hash[old_hash]
-                    
-                # Remove old block from chain
-                self.blocks.pop()
-                
-                # Add new block
-                self.blocks.append(new_block)
-                self.block_by_hash[new_block["blockHash"]] = new_block
-                
-                # Update ledger for new miner
-                new_addr = new_block["coinbaseAddress"]
-                self.ledger[new_addr] = self.ledger.get(new_addr, 0) + 1
-                
-                # Signal that a block replacement occurred
-                self.block_replacement_event.set()
-            else:
-                print("Current block is better - keeping it")
+            # Add new block
+            self.blocks.append(new_block)
+            self.block_by_hash[new_block["blockHash"]] = new_block
+            
+            # Update ledger for new miner
+            new_addr = new_block["coinbaseAddress"]
+            self.ledger[new_addr] = self.ledger.get(new_addr, 0) + 1
+            
+            # Signal that a block replacement occurred
+            self.block_replacement_event.set()
+        else:
+            print("Current block is better - keeping it")
 
     def wait_for_block_change(self, timeout=None):
         """Wait for a block replacement event"""

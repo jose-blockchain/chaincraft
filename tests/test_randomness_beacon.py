@@ -30,14 +30,19 @@ def create_beacon_network(num_nodes, difficulty_bits=8):
         nodes.append(node)
         beacons.append(beacon)
     
-    # Create a fully connected mesh network (every node connects to every other node)
-    print("Creating fully connected network:")
+    # Connect nodes in a ring (each node connects to adjacent nodes)
+    print("Creating ring network:")
     for i in range(num_nodes):
-        for j in range(num_nodes):
-            # Skip self-connections
-            if i != j:
-                nodes[i].connect_to_peer(nodes[j].host, nodes[j].port)
-                print(f"Connected: Node {i} → Node {j}")
+        next_i = (i + 1) % num_nodes
+        prev_i = (i - 1) % num_nodes
+        
+        # Connect to next node
+        nodes[i].connect_to_peer(nodes[next_i].host, nodes[next_i].port)
+        print(f"Connected: Node {i} → Node {next_i}")
+        
+        # Connect to previous node (for bidirectional communication)
+        nodes[i].connect_to_peer(nodes[prev_i].host, nodes[prev_i].port)
+        print(f"Connected: Node {i} → Node {prev_i}")
     
     return nodes, beacons
 
@@ -66,7 +71,7 @@ def wait_for_chain_sync(beacons, expected_height, timeout=20):
 
 class TestRandomnessBeacon(unittest.TestCase):
     
-    __DIFFICULTY = 23
+    __DIFFICULTY = 24
 
     def setUp(self):
         self.nodes = []
@@ -290,7 +295,7 @@ class TestRandomnessBeacon(unittest.TestCase):
         # Create miners for each node
         miners = []
         for i in range(len(nodes)):
-            miner = BeaconMiner(nodes[i], beacons[i], mining_interval=0.5)
+            miner = BeaconMiner(nodes[i], beacons[i], mining_interval=0.2)
             miners.append(miner)
         
         # Start miners
