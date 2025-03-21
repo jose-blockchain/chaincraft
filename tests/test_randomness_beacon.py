@@ -288,7 +288,7 @@ class TestRandomnessBeacon(unittest.TestCase):
     def test_full_mining_network(self):
         """Test a full network with miners"""
         # Create network
-        nodes, beacons = create_beacon_network(num_nodes=3, difficulty_bits=self.__DIFFICULTY)
+        nodes, beacons = create_beacon_network(num_nodes=5, difficulty_bits=self.__DIFFICULTY)
         self.nodes = nodes
         self.beacons = beacons
         
