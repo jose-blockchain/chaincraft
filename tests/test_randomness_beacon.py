@@ -309,7 +309,7 @@ class TestRandomnessBeacon(unittest.TestCase):
             miner.start()
         
         # Let them mine for a few blocks
-        time.sleep(120)
+        time.sleep(90)
         
         # Stop miners
         for miner in miners:
