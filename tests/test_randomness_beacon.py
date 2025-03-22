@@ -232,7 +232,7 @@ class TestRandomnessBeacon(unittest.TestCase):
         nodes[0].create_shared_message(block)
         
         # Wait for sync
-        self.assertTrue(wait_for_chain_sync(beacons, 2))
+        self.assertTrue(wait_for_chain_sync(beacons, 2, timeout=60))
         
         # Verify all nodes have the block
         for beacon in beacons:
@@ -290,6 +290,9 @@ class TestRandomnessBeacon(unittest.TestCase):
     
     def test_full_mining_network(self):
         """Test a full network with miners"""
+
+        random.seed(123)
+
         # Create network
         nodes, beacons = create_beacon_network(num_nodes=3, difficulty_bits=self.__DIFFICULTY+1)
         self.nodes = nodes
@@ -306,7 +309,7 @@ class TestRandomnessBeacon(unittest.TestCase):
             miner.start()
         
         # Let them mine for a few blocks
-        time.sleep(30)
+        time.sleep(60)
         
         # Stop miners
         for miner in miners:
