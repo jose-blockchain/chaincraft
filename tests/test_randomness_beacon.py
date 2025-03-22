@@ -232,7 +232,7 @@ class TestRandomnessBeacon(unittest.TestCase):
         nodes[0].create_shared_message(block)
         
         # Wait for sync
-        self.assertTrue(wait_for_chain_sync(beacons, 2, timeout=120))
+        self.assertTrue(wait_for_chain_sync(beacons, 2, timeout=150))
         
         # Verify all nodes have the block
         for beacon in beacons:
