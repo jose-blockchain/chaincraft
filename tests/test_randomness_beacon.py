@@ -6,6 +6,9 @@ from chaincraft import ChaincraftNode
 from examples.randomness_beacon import RandomnessBeacon, generate_eth_address, BeaconMiner
 from shared_message import SharedMessage
 
+import random
+random.seed(123)
+
 def create_beacon_network(num_nodes, difficulty_bits=8):
     """Create a network of nodes with RandomnessBeacon objects"""
     nodes = []
