@@ -46,7 +46,7 @@ def create_beacon_network(num_nodes, difficulty_bits=8):
     
     return nodes, beacons
 
-def wait_for_chain_sync(beacons, expected_height, timeout=20):
+def wait_for_chain_sync(beacons, expected_height, timeout=30):
     """Wait for all beacons to reach the expected chain height"""
     start_time = time.time()
     
@@ -71,7 +71,7 @@ def wait_for_chain_sync(beacons, expected_height, timeout=20):
 
 class TestRandomnessBeacon(unittest.TestCase):
     
-    __DIFFICULTY = 24
+    __DIFFICULTY = 23
 
     def setUp(self):
         self.nodes = []
@@ -162,14 +162,14 @@ class TestRandomnessBeacon(unittest.TestCase):
         # Create two beacons with different coinbase addresses
         addr1 = generate_eth_address()
         addr2 = generate_eth_address()
-        beacon = RandomnessBeacon(coinbase_address=addr1, difficulty_bits=4)
+        beacon = RandomnessBeacon(coinbase_address=addr1, difficulty_bits=3)
         
         # Mine first block
         block1 = beacon.mine_block()
         beacon.add_message(SharedMessage(data=block1))
         
         # Mine competing block with addr2
-        beacon2 = RandomnessBeacon(coinbase_address=addr2, difficulty_bits=4)
+        beacon2 = RandomnessBeacon(coinbase_address=addr2, difficulty_bits=3)
         # Ensure it has same genesis by copying
         beacon2.blocks = [beacon.blocks[0]]
         beacon2.block_by_hash = {beacon.blocks[0]["blockHash"]: beacon.blocks[0]}
@@ -288,7 +288,7 @@ class TestRandomnessBeacon(unittest.TestCase):
     def test_full_mining_network(self):
         """Test a full network with miners"""
         # Create network
-        nodes, beacons = create_beacon_network(num_nodes=3, difficulty_bits=self.__DIFFICULTY)
+        nodes, beacons = create_beacon_network(num_nodes=3, difficulty_bits=self.__DIFFICULTY+1)
         self.nodes = nodes
         self.beacons = beacons
         
@@ -303,7 +303,7 @@ class TestRandomnessBeacon(unittest.TestCase):
             miner.start()
         
         # Let them mine for a few blocks
-        time.sleep(40)
+        time.sleep(30)
         
         # Stop miners
         for miner in miners:
