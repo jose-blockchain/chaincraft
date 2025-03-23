@@ -10,7 +10,7 @@ import random
 random.seed(123)
 
 def create_beacon_network(num_nodes, difficulty_bits=8):
-    """Create a network of nodes with RandomnessBeacon objects"""
+    """Create a fully connected network of nodes with RandomnessBeacon objects"""
     nodes = []
     beacons = []
     
@@ -33,19 +33,14 @@ def create_beacon_network(num_nodes, difficulty_bits=8):
         nodes.append(node)
         beacons.append(beacon)
     
-    # Connect nodes in a ring (each node connects to adjacent nodes)
-    print("Creating ring network:")
+    # Connect each node to every other node (fully connected network)
+    print("Creating fully connected network:")
     for i in range(num_nodes):
-        next_i = (i + 1) % num_nodes
-        prev_i = (i - 1) % num_nodes
-        
-        # Connect to next node
-        nodes[i].connect_to_peer(nodes[next_i].host, nodes[next_i].port)
-        print(f"Connected: Node {i} → Node {next_i}")
-        
-        # Connect to previous node (for bidirectional communication)
-        nodes[i].connect_to_peer(nodes[prev_i].host, nodes[prev_i].port)
-        print(f"Connected: Node {i} → Node {prev_i}")
+        for j in range(num_nodes):
+            # Skip connecting a node to itself
+            if i != j:
+                nodes[i].connect_to_peer(nodes[j].host, nodes[j].port)
+                print(f"Connected: Node {i} → Node {j}")
     
     return nodes, beacons
 
@@ -348,7 +343,7 @@ class TestRandomnessBeacon(unittest.TestCase):
             miner.start()
         
         # Let them mine for a few blocks
-        time.sleep(90)
+        time.sleep(60)
         
         # Stop miners
         for miner in miners:
