@@ -148,7 +148,7 @@ Contributions to Chaincraft are welcome! This is an educational project aimed at
 - ✅ Message Validation: Field and type validation with peer banning  
 - ✅ Shared Objects: State synchronization between nodes  
 - ✅ Merklelized Storage: Efficient state synchronization  
-- ⬜ Additional Cryptographic Primitives  
+- ✅ Additional Cryptographic Primitives  
 - ⬜ Indexing (MongoDB-like)  
 - ⬜ Transaction Validation  
 - ⬜ Consensus Mechanisms  
