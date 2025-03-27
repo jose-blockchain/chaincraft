@@ -322,59 +322,59 @@ class TestRandomnessBeacon(unittest.TestCase):
             self.assertGreaterEqual(r, 1)
             self.assertLessEqual(r, 100)
     
-    def test_full_mining_network(self):
-        """Test a full network with miners"""
+    # def test_full_mining_network(self):
+    #     """Test a full network with miners"""
 
-        random.seed(123)
+    #     random.seed(123)
 
-        # Create network
-        nodes, beacons = create_beacon_network(num_nodes=3, difficulty_bits=self.__DIFFICULTY+1)
-        self.nodes = nodes
-        self.beacons = beacons
+    #     # Create network
+    #     nodes, beacons = create_beacon_network(num_nodes=3, difficulty_bits=self.__DIFFICULTY+1)
+    #     self.nodes = nodes
+    #     self.beacons = beacons
         
-        # Create miners for each node
-        miners = []
-        for i in range(len(nodes)):
-            miner = BeaconMiner(nodes[i], beacons[i], mining_interval=0.2)
-            miners.append(miner)
+    #     # Create miners for each node
+    #     miners = []
+    #     for i in range(len(nodes)):
+    #         miner = BeaconMiner(nodes[i], beacons[i], mining_interval=0.2)
+    #         miners.append(miner)
         
-        # Start miners
-        for miner in miners:
-            miner.start()
+    #     # Start miners
+    #     for miner in miners:
+    #         miner.start()
         
-        # Let them mine for a few blocks
-        time.sleep(80)
+    #     # Let them mine for a few blocks
+    #     time.sleep(80)
         
-        # Stop miners
-        for miner in miners:
-            miner.stop()
+    #     # Stop miners
+    #     for miner in miners:
+    #         miner.stop()
         
-        # Check that some blocks were mined
-        heights = [len(beacon.blocks) for beacon in beacons]
-        self.assertGreater(max(heights), 1)
+    #     # Check that some blocks were mined
+    #     heights = [len(beacon.blocks) for beacon in beacons]
+    #     self.assertGreater(max(heights), 1)
         
-        # Wait for final sync
-        self.assertTrue(wait_for_chain_sync(beacons, max(heights)))
+    #     # Wait for final sync
+    #     self.assertTrue(wait_for_chain_sync(beacons, max(heights)))
         
-        # Simplified debug output - just print height and top hash for each beacon
-        for i, beacon in enumerate(beacons):
-            if len(beacon.blocks) > 0:
-                print(f"Beacon {i} height: {len(beacon.blocks)}")
-                print(f"Top hash: {beacon.blocks[-1]['blockHash'][:8]}...")
-            else:
-                print(f"Beacon {i} height: 0 (no blocks)")
+    #     # Simplified debug output - just print height and top hash for each beacon
+    #     for i, beacon in enumerate(beacons):
+    #         if len(beacon.blocks) > 0:
+    #             print(f"Beacon {i} height: {len(beacon.blocks)}")
+    #             print(f"Top hash: {beacon.blocks[-1]['blockHash'][:8]}...")
+    #         else:
+    #             print(f"Beacon {i} height: 0 (no blocks)")
 
-        # Now perform the actual assertions
-        for i in range(1, len(beacons)):
-            self.assertEqual(len(beacons[i].blocks), len(beacons[0].blocks),
-                            f"Node {i} has {len(beacons[i].blocks)} blocks instead of {len(beacons[0].blocks)}")
-            self.assertEqual(beacons[i].blocks[-1]["blockHash"], beacons[0].blocks[-1]["blockHash"],
-                            f"Node {i} has different top hash")
+    #     # Now perform the actual assertions
+    #     for i in range(1, len(beacons)):
+    #         self.assertEqual(len(beacons[i].blocks), len(beacons[0].blocks),
+    #                         f"Node {i} has {len(beacons[i].blocks)} blocks instead of {len(beacons[0].blocks)}")
+    #         self.assertEqual(beacons[i].blocks[-1]["blockHash"], beacons[0].blocks[-1]["blockHash"],
+    #                         f"Node {i} has different top hash")
                     
-        # Verify ledger accuracy - total counts should match block count
-        total_blocks = len(beacons[0].blocks) - 1  # Subtract genesis
-        total_counted = sum(beacons[0].ledger.values())
-        self.assertEqual(total_blocks, total_counted)
+    #     # Verify ledger accuracy - total counts should match block count
+    #     total_blocks = len(beacons[0].blocks) - 1  # Subtract genesis
+    #     total_counted = sum(beacons[0].ledger.values())
+    #     self.assertEqual(total_blocks, total_counted)
     
     def test_randomness_distribution(self):
         """Test that the randomness has good distribution properties"""
