@@ -1,5 +1,7 @@
 # Chaincraft
 
+[![Python Unit Tests](https://github.com/google/adk-python/actions/workflows/python-unit-tests.yml/badge.svg)]([https://github.com/google/adk-python/actions/workflows/python-unit-tests.yml](https://github.com/jio-gl/chaincraft/blob/main/.github/workflows/python-app.yml))
+
 **A platform for blockchain education and prototyping**
 
 Chaincraft is a Python-based framework for building and experimenting with blockchain protocols. It provides the fundamental components needed to create distributed networks, implement consensus mechanisms, and prototype blockchain applications.
