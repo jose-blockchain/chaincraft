@@ -9,45 +9,45 @@ import zlib
 import hashlib
 import dbm.ndbm
 import os
-from typing import List, Tuple, Dict, Union
+from typing import List, Tuple, Dict, Union, Optional, Any, Set
 
 from shared_object import SharedObject, SharedObjectException
 from shared_message import SharedMessage
 
 
 class ChaincraftNode:
-    PEERS = "PEERS"
-    BANNED_PEERS = "BANNED_PEERS"
+    PEERS: str = "PEERS"
+    BANNED_PEERS: str = "BANNED_PEERS"
 
     def __init__(
         self,
-        max_peers=5,
-        reset_db=False,
-        persistent=False,
-        use_fixed_address=False,
-        debug=False,
-        local_discovery=True,
-        shared_objects=None,
-        port=None
-    ):
+        max_peers: int = 5,
+        reset_db: bool = False,
+        persistent: bool = False,
+        use_fixed_address: bool = False,
+        debug: bool = False,
+        local_discovery: bool = True,
+        shared_objects: Optional[List[SharedObject]] = None,
+        port: Optional[int] = None
+    ) -> None:
         """
         Initialize the ChaincraftNode with optional parameters.
         """
-        self.max_peers = max_peers
-        self.use_fixed_address = use_fixed_address
+        self.max_peers: int = max_peers
+        self.use_fixed_address: bool = use_fixed_address
 
         if port is not None:
-            self.host = '127.0.0.1'
-            self.port = port
+            self.host: str = '127.0.0.1'
+            self.port: int = port
         elif use_fixed_address:
-            self.host = 'localhost'
-            self.port = 21000
+            self.host: str = 'localhost'
+            self.port: int = 21000
         else:
-            self.host = '127.0.0.1'
-            self.port = random.randint(5000, 9000)
+            self.host: str = '127.0.0.1'
+            self.port: int = random.randint(5000, 9000)
 
-        self.db_name = f"node_{self.port}.db"
-        self.persistent = persistent
+        self.db_name: str = f"node_{self.port}.db"
+        self.persistent: bool = persistent
 
         # Initialize storage (in-memory or dbm)
         if not persistent:
@@ -59,18 +59,18 @@ class ChaincraftNode:
 
         # Load peers/banned from DB
         self.peers: List[Tuple[str, int]] = self.load_peers()
-        self.banned_peers = self.load_banned_peers()
+        self.banned_peers: Dict[Tuple[str, int], float] = self.load_banned_peers()
 
-        self.socket = None
-        self.is_running = False
-        self.gossip_interval = 0.5  # seconds
-        self.debug = debug
-        self.local_discovery = local_discovery
-        self.waiting_local_peer = {}
+        self.socket: Optional[socket.socket] = None
+        self.is_running: bool = False
+        self.gossip_interval: float = 0.5  # seconds
+        self.debug: bool = debug
+        self.local_discovery: bool = local_discovery
+        self.waiting_local_peer: Dict[Tuple[str, int], bool] = {}
 
-        self.accepted_message_types = []
-        self.invalid_message_counts = {}
-        self.shared_objects = shared_objects or []
+        self.accepted_message_types: List[str] = []
+        self.invalid_message_counts: Dict[Tuple[str, int], int] = {}
+        self.shared_objects: List[SharedObject] = shared_objects or []
 
     def load_peers(self) -> List[Tuple[str, int]]:
         """
@@ -86,18 +86,18 @@ class ChaincraftNode:
         Load the banned peers from persistent storage if available.
         """
         if self.persistent and self.BANNED_PEERS.encode() in self.db:
-            banned_peers_data = json.loads(self.db[self.BANNED_PEERS.encode()].decode())
+            banned_peers_data: Dict[str, float] = json.loads(self.db[self.BANNED_PEERS.encode()].decode())
             return {tuple(peer_str.split(',')): expiration for peer_str, expiration in banned_peers_data.items()}
         else:
             return {}
 
-    def add_shared_object(self, shared_object: SharedObject):
+    def add_shared_object(self, shared_object: SharedObject) -> None:
         """
         Add a SharedObject for the node to validate/integrate messages.
         """
         self.shared_objects.append(shared_object)
 
-    def start(self):
+    def start(self) -> None:
         """
         Start the node by binding to a socket and launching the listener and gossip threads.
         """
@@ -109,13 +109,13 @@ class ChaincraftNode:
 
         threading.Thread(target=self.listen_for_messages, daemon=True).start()
         threading.Thread(target=self.gossip, daemon=True).start()
-        threading.Thread(target=self.check_for_merkelized_objects, daemon=True).start()  # Add this line
+        threading.Thread(target=self.check_for_merkelized_objects, daemon=True).start()
 
-    def _bind_socket(self):
+    def _bind_socket(self) -> None:
         """
         Attempt to bind a UDP socket to the specified host/port (retry if needed).
         """
-        max_retries = 10
+        max_retries: int = 10
         for _ in range(max_retries):
             try:
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -129,7 +129,7 @@ class ChaincraftNode:
 
         raise OSError("Failed to bind to a port after multiple attempts")
 
-    def close(self):
+    def close(self) -> None:
         """
         Cleanly stop the node and close database/socket resources.
         """
@@ -139,17 +139,19 @@ class ChaincraftNode:
         if self.persistent:
             self.db.close()
 
-    def listen_for_messages(self):
+    def listen_for_messages(self) -> None:
         """
         Listen for incoming datagrams, decompress them, and handle new messages.
         """
         while self.is_running:
             try:
+                compressed_data: bytes
+                addr: Tuple[str, int]
                 compressed_data, addr = self.socket.recvfrom(1500)
-                message_hash = self.hash_message(compressed_data)
+                message_hash: str = self.hash_message(compressed_data)
                 # Only handle if we've never seen this message
                 if message_hash not in self.db:
-                    message = self.decompress_message(compressed_data)
+                    message: str = self.decompress_message(compressed_data)
                     self.handle_message(message, message_hash, addr)
             except OSError:
                 if not self.is_running:
@@ -157,25 +159,25 @@ class ChaincraftNode:
                 else:
                     raise
 
-    def gossip(self):
+    def gossip(self) -> None:
         """
         Periodically broadcast all known messages to all peers.
         """
         while self.is_running:
             try:
                 if self.db:
-                    keys_to_share = [
+                    keys_to_share: List[bytes] = [
                         key for key in self.db.keys()
                         if key != self.PEERS.encode() and key != self.BANNED_PEERS.encode()
                     ]
                     for key in keys_to_share:
-                        object_to_share = self._load_db_value(key)
+                        object_to_share: str = self._load_db_value(key)
                         self.broadcast(object_to_share)
                 time.sleep(self.gossip_interval)
             except Exception as e:
                 print(f"Error in gossip: {e}")
 
-    def connect_to_peer(self, host, port, discovery=False):
+    def connect_to_peer(self, host: str, port: int, discovery: bool = False) -> None:
         """
         Connect to a peer (host, port), optionally sending a discovery message.
         Will remove and replace peers if max_peers is reached.
@@ -193,7 +195,7 @@ class ChaincraftNode:
         if discovery:
             self.send_peer_discovery(host, port)
 
-    def _replace_peer_if_max_reached(self):
+    def _replace_peer_if_max_reached(self) -> None:
         """
         If the node already has max_peers, remove one before adding a new one.
         """
@@ -204,7 +206,7 @@ class ChaincraftNode:
                 f"with a new peer."
             )
 
-    def send_peer_discovery(self, host, port):
+    def send_peer_discovery(self, host: str, port: int) -> None:
         """
         Send a discovery message to the specified peer.
         """
@@ -214,7 +216,7 @@ class ChaincraftNode:
         compressed_message = self.compress_message(discovery_message)
         self.socket.sendto(compressed_message, (host, port))
 
-    def connect_to_peer_locally(self, host, port):
+    def connect_to_peer_locally(self, host: str, port: int) -> None:
         """
         Connect to a peer locally (if different from self) and request local peer list.
         """
@@ -222,7 +224,7 @@ class ChaincraftNode:
             self.waiting_local_peer[(host, port)] = True
             self.send_local_peer_request(host, port)
 
-    def send_local_peer_request(self, host, port):
+    def send_local_peer_request(self, host: str, port: int) -> None:
         """
         Request local peers from the specified host/port.
         """
@@ -244,7 +246,7 @@ class ChaincraftNode:
         """
         return hashlib.sha256(compressed_message).hexdigest()
 
-    def broadcast(self, message: str):
+    def broadcast(self, message: str) -> str:
         """
         Broadcast a message (string) to all known peers.
         """
@@ -269,7 +271,7 @@ class ChaincraftNode:
 
         return message_hash
 
-    def handle_message(self, message, message_hash, addr):
+    def handle_message(self, message: str, message_hash: str, addr: Tuple[str, int]) -> None:
         """Handle a new incoming message. Validate, store, broadcast if valid."""        
         try:
             # Avoid reprocessing if already in DB
@@ -305,7 +307,7 @@ class ChaincraftNode:
             print(f"❌ Error handling message: {str(e)}")
             self.handle_invalid_message(addr)
 
-    def _handle_shared_message(self, shared_message, original_message, message_hash, addr):
+    def _handle_shared_message(self, shared_message: SharedMessage, original_message: str, message_hash: str, addr: Tuple[str, int]) -> None:
         """
         Handle logic for a valid SharedMessage, including storage, broadcasting, and
         special message fields (peer discovery, local peers).
@@ -321,7 +323,7 @@ class ChaincraftNode:
         else:
             self._store_and_broadcast(message_hash, original_message)
 
-    def _process_shared_objects(self, shared_message):
+    def _process_shared_objects(self, shared_message: SharedMessage) -> None:
         """
         Add the shared message to each SharedObject.
         """
@@ -330,7 +332,7 @@ class ChaincraftNode:
             if self.debug:
                 print(f"Node {self.port}: Added message to shared object {type(obj).__name__}")
 
-    def _store_and_broadcast(self, message_hash, message_str):
+    def _store_and_broadcast(self, message_hash: str, message_str: str) -> None:
         """
         Store the message in the node's DB and broadcast it.
         """
@@ -339,40 +341,46 @@ class ChaincraftNode:
             print(f"Node {self.port}: Received new object with hash {message_hash} Object: {message_str}")
         self.broadcast(message_str)
 
-    def _handle_peer_discovery(self, shared_message):
+    def _handle_peer_discovery(self, shared_message: SharedMessage) -> None:
         """
         Handle a PEER_DISCOVERY message by connecting to the discovered peer.
         """
-        peer_address = shared_message.data[SharedMessage.PEER_DISCOVERY]
+        peer_address: str = shared_message.data[SharedMessage.PEER_DISCOVERY]
+        host: str
+        port: str
         host, port = peer_address.split(":")
         self.connect_to_peer(host, int(port), discovery=True)
 
-    def _handle_local_peer_request(self, shared_message):
+    def _handle_local_peer_request(self, shared_message: SharedMessage) -> None:
         """
         Respond to a REQUEST_LOCAL_PEERS message with the current peer list if local_discovery is enabled.
         """
-        requesting_peer = shared_message.data[SharedMessage.REQUEST_LOCAL_PEERS]
+        requesting_peer: str = shared_message.data[SharedMessage.REQUEST_LOCAL_PEERS]
+        host: str
+        port: str
         host, port = requesting_peer.split(":")
-        local_peer_list = [f"{peer[0]}:{peer[1]}" for peer in self.peers]
-        response_object = SharedMessage(data={SharedMessage.LOCAL_PEERS: local_peer_list})
-        response_message = response_object.to_json()
-        compressed_message = self.compress_message(response_message)
+        local_peer_list: List[str] = [f"{peer[0]}:{peer[1]}" for peer in self.peers]
+        response_object: SharedMessage = SharedMessage(data={SharedMessage.LOCAL_PEERS: local_peer_list})
+        response_message: str = response_object.to_json()
+        compressed_message: bytes = self.compress_message(response_message)
         self.socket.sendto(compressed_message, (host, int(port)))
 
-    def _handle_local_peer_response(self, shared_message, addr):
+    def _handle_local_peer_response(self, shared_message: SharedMessage, addr: Tuple[str, int]) -> None:
         """
         Handle a LOCAL_PEERS message, possibly connecting to the newly received peers.
         """
-        peer = (addr[0], addr[1])
+        peer: Tuple[str, int] = (addr[0], addr[1])
         if peer in self.waiting_local_peer and self.waiting_local_peer[peer]:
-            local_peers = shared_message.data[SharedMessage.LOCAL_PEERS]
+            local_peers: List[str] = shared_message.data[SharedMessage.LOCAL_PEERS]
             for local_peer in local_peers:
+                host: str
+                port: str
                 host, port = local_peer.split(":")
                 self.connect_to_peer(host, int(port))
             self.waiting_local_peer[peer] = False
             del self.waiting_local_peer[peer]
 
-    def is_message_accepted(self, message):
+    def is_message_accepted(self, message: str) -> bool:
         """
         Check if the message matches any accepted type schema (if defined), or if all are accepted.
         """
@@ -380,8 +388,8 @@ class ChaincraftNode:
             return True
 
         try:
-            shared_object = SharedMessage.from_json(message)
-            message_type = type(shared_object.data)
+            shared_object: SharedMessage = SharedMessage.from_json(message)
+            message_type: type = type(shared_object.data)
 
             # If the data is a dictionary, attempt to match the 'message_type' key.
             for accepted_type in self.accepted_message_types:
@@ -394,7 +402,7 @@ class ChaincraftNode:
         except json.JSONDecodeError:
             return False
 
-    def is_valid_dict_message(self, message_data, accepted_type):
+    def is_valid_dict_message(self, message_data: Dict[str, Any], accepted_type: Dict[str, Any]) -> bool:
         """
         Verify that a dictionary-type message matches the specified type schema.
         """
@@ -413,7 +421,7 @@ class ChaincraftNode:
 
         return True
 
-    def is_valid_field_type(self, field_value, field_type, visited_types=None):
+    def is_valid_field_type(self, field_value: Any, field_type: Any, visited_types: Optional[Set[Any]] = None) -> bool:
         """
         Recursively validate message fields, including nested lists and custom type rules (e.g. "hash").
         """
@@ -441,11 +449,11 @@ class ChaincraftNode:
         else:
             return isinstance(field_value, field_type)
 
-    def handle_invalid_message(self, addr):
+    def handle_invalid_message(self, addr: Tuple[str, int]) -> None:
         """
         Handle invalid messages (increment counters, ban if too many).
         """
-        peer = (addr[0], addr[1])
+        peer: Tuple[str, int] = (addr[0], addr[1])
         if peer not in self.banned_peers:
             self.invalid_message_counts[peer] = self.invalid_message_counts.get(peer, 0) + 1
 
@@ -453,7 +461,7 @@ class ChaincraftNode:
                 self.ban_peer(peer)
                 del self.invalid_message_counts[peer]
 
-    def ban_peer(self, peer):
+    def ban_peer(self, peer: Tuple[str, int]) -> None:
         """
         Ban a peer for 48 hours and remove it from our peer list.
         """
@@ -462,24 +470,24 @@ class ChaincraftNode:
             self.peers.remove(peer)
         self.save_banned_peers()
 
-    def save_banned_peers(self):
+    def save_banned_peers(self) -> None:
         """
         Persist the banned peers to the DB.
         """
         if self.persistent:
-            banned_peers_data = {
+            banned_peers_data: Dict[str, float] = {
                 ",".join(map(str, peer)): expiration
                 for peer, expiration in self.banned_peers.items()
             }
             self.db[self.BANNED_PEERS.encode()] = json.dumps(banned_peers_data).encode()
             self.db_sync()
 
-    def create_shared_message(self, data):
+    def create_shared_message(self, data: Any) -> Tuple[str, SharedMessage]:
         """
         Create a new SharedMessage, validate it with SharedObjects (if any),
         broadcast it, and store in the DB.
         """
-        new_object = SharedMessage(data=data)
+        new_object: SharedMessage = SharedMessage(data=data)
         if self.shared_objects:
             if all(obj.is_valid(new_object) for obj in self.shared_objects):
                 for obj in self.shared_objects:
@@ -489,8 +497,8 @@ class ChaincraftNode:
             else:
                 raise SharedObjectException("Invalid message for shared objects")
 
-        message = new_object.to_json()
-        message_hash = self.broadcast(message)
+        message: str = new_object.to_json()
+        message_hash: str = self.broadcast(message)
         self.db[message_hash] = message
 
         if self.persistent:
@@ -501,7 +509,7 @@ class ChaincraftNode:
 
         return message_hash, new_object
 
-    def db_sync(self):
+    def db_sync(self) -> None:
         """
         Close and reopen the DB if we're using dbm to ensure data is written.
         """
@@ -509,7 +517,7 @@ class ChaincraftNode:
             self.db.close()
             self.db = dbm.ndbm.open(self.db_name, 'c')
 
-    def save_peers(self):
+    def save_peers(self) -> None:
         """
         Persist the current peer list to DB (if persistent).
         """
@@ -517,22 +525,28 @@ class ChaincraftNode:
             self.db[self.PEERS.encode()] = json.dumps(self.peers).encode()
             self.db_sync()
 
-    def _load_db_value(self, key) -> str:
+    def _load_db_value(self, key: bytes) -> str:
         """
         Helper to load a string value from DB (decoding if persistent).
         """
-        value = self.db[key]
+        value: Union[str, bytes] = self.db[key]
         if self.persistent:
             value = value.decode()
         return value
 
     def compress_message(self, message: str) -> bytes:
+        """
+        Compress a string message using zlib.
+        """
         if isinstance(message, str):
             return zlib.compress(message.encode())
         else:
             raise TypeError(f"Expected str, got {type(message)}")
     
-    def check_for_merkelized_objects(self):
+    def check_for_merkelized_objects(self) -> None:
+        """
+        Periodically check for merkelized objects and request updates if needed.
+        """
         if self.debug:
             print("🔄 Starting check_for_merkelized_objects loop")
         while self.is_running:
@@ -542,8 +556,8 @@ class ChaincraftNode:
                 if self.debug:
                     print(f"📦 Examining object of type: {type(obj).__name__}")
                 if obj.is_merkelized():
-                    latest_digest = obj.get_latest_digest()
-                    class_name = type(obj).__name__
+                    latest_digest: str = obj.get_latest_digest()
+                    class_name: str = type(obj).__name__
                     if self.debug:
                         print(f"✨ Found merkelized object - class: {class_name}, digest: {latest_digest[:8]}...")
                     self.request_shared_object_update(class_name, latest_digest)
@@ -553,16 +567,19 @@ class ChaincraftNode:
                 print(f"💤 Sleeping for {self.gossip_interval} seconds")
             time.sleep(self.gossip_interval)  # Adjust the interval as needed
 
-    def request_shared_object_update(self, class_name, digest):
+    def request_shared_object_update(self, class_name: str, digest: str) -> None:
+        """
+        Request an update for a shared object with the given class name and digest.
+        """
         if self.debug:
             print(f"\n📤 Requesting update for {class_name} with digest {digest[:8]}...")
-        message = SharedMessage(data={
+        message: SharedMessage = SharedMessage(data={
             SharedMessage.REQUEST_SHARED_OBJECT_UPDATE: {
                 "class_name": class_name,
                 "digest": digest
             }
         })
-        message_json = message.to_json()
+        message_json: str = message.to_json()
         if self.debug:
             print(f"📝 Created message - type: {type(message_json)}")
             print(f"📄 Content: {message_json}")
@@ -575,20 +592,23 @@ class ChaincraftNode:
             if self.debug:
                 print(f"❌ Failed to broadcast update request: {str(e)}")
 
-    def _handle_shared_object_update_request(self, shared_message, addr):
+    def _handle_shared_object_update_request(self, shared_message: SharedMessage, addr: Tuple[str, int]) -> None:
+        """
+        Handle a request for a shared object update from another node.
+        """
         if self.debug:
             print("\n📥 Received update request from", addr)
-        request_data = shared_message.data[SharedMessage.REQUEST_SHARED_OBJECT_UPDATE]
-        class_name = request_data["class_name"]
-        digest = request_data["digest"]
+        request_data: Dict[str, str] = shared_message.data[SharedMessage.REQUEST_SHARED_OBJECT_UPDATE]
+        class_name: str = request_data["class_name"]
+        digest: str = request_data["digest"]
         
         if self.debug:
             print(f"🔍 Processing request - class: {class_name}, digest: {digest[:8]}...")
             print(f"📊 Number of shared objects to check: {len(self.shared_objects)}")
         
-        matching_objects = 0
+        matching_objects: int = 0
         for obj in self.shared_objects:
-            current_class = type(obj).__name__
+            current_class: str = type(obj).__name__
             if self.debug:
                 print(f"🔎 Checking object type {current_class}")
                 print(f"📋 Object chain: {[h[:8] + '...' for h in obj.chain]}")
@@ -598,16 +618,16 @@ class ChaincraftNode:
                 if obj.is_valid_digest(digest):
                     if self.debug:
                         print(f"✅ Found matching object with valid digest")
-                    messages_to_gossip = obj.gossip_object(digest)
+                    messages_to_gossip: List[SharedMessage] = obj.gossip_object(digest)
                     if self.debug:
                         print(f"📨 Got {len(messages_to_gossip)} messages to gossip")
                     
                     for idx, message in enumerate(messages_to_gossip):
                         try:
-                            json_msg = message.to_json()
+                            json_msg: str = message.to_json()
                             if self.debug:
                                 print(f"📤 Sending next hash {idx + 1}/{len(messages_to_gossip)} to {addr}: {message.data[:8]}...")
-                            compressed_message = self.compress_message(json_msg)
+                            compressed_message: bytes = self.compress_message(json_msg)
                             self.socket.sendto(compressed_message, addr)
                             if self.debug:
                                 print(f"✅ Send to {addr} successful")
