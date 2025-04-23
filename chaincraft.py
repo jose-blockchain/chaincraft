@@ -13,17 +13,20 @@ from typing import List, Tuple, Dict, Union, Optional, Any, Set
 
 from shared_object import SharedObject, SharedObjectException
 from shared_message import SharedMessage
+from index_helper import IndexHelper
 
 
 class ChaincraftNode:
     PEERS: str = "PEERS"
     BANNED_PEERS: str = "BANNED_PEERS"
+    INDEXED_FIELDS: str = "INDEXED_FIELDS"
 
     def __init__(
         self,
         max_peers: int = 5,
         reset_db: bool = False,
         persistent: bool = False,
+        indexed: bool = False,
         use_fixed_address: bool = False,
         debug: bool = False,
         local_discovery: bool = True,
@@ -35,6 +38,7 @@ class ChaincraftNode:
         """
         self.max_peers: int = max_peers
         self.use_fixed_address: bool = use_fixed_address
+        self.indexed: bool = indexed
 
         if port is not None:
             self.host: str = '127.0.0.1'
@@ -57,6 +61,12 @@ class ChaincraftNode:
                 os.remove(self.db_name)
             self.db: Union[dbm.ndbm._dbm, Dict[str, str]] = dbm.ndbm.open(self.db_name, 'c')
 
+        # Initialize SQLite for indexing if both persistent and indexed are True
+        self.index_helper = None
+        if self.persistent and self.indexed:
+            self.index_helper = IndexHelper(self.port, debug)
+            self.index_helper.initialize_database()
+
         # Load peers/banned from DB
         self.peers: List[Tuple[str, int]] = self.load_peers()
         self.banned_peers: Dict[Tuple[str, int], float] = self.load_banned_peers()
@@ -71,6 +81,45 @@ class ChaincraftNode:
         self.accepted_message_types: List[str] = []
         self.invalid_message_counts: Dict[Tuple[str, int], int] = {}
         self.shared_objects: List[SharedObject] = shared_objects or []
+        
+        # Dictionary to store which fields should be indexed for each message type
+        self.indexed_fields: Dict[str, List[str]] = {}
+        if self.index_helper:
+            self.indexed_fields = self.index_helper.indexed_fields
+
+    def set_indexed_fields(self, message_type: str, fields: List[str]) -> None:
+        """
+        Set which fields should be indexed for a specific message type.
+        
+        Args:
+            message_type: The name of the message type
+            fields: List of field names to index
+        """
+        if not self.persistent or not self.indexed or not self.index_helper:
+            return
+            
+        self.indexed_fields[message_type] = fields
+        self.index_helper.set_indexed_fields(message_type, fields)
+
+    def search_messages(self, message_type: str, field: str, value: str, 
+                        page: int = 1, page_size: int = 10) -> Tuple[List[Dict[str, Any]], int]:
+        """
+        Search for messages by message type and field value.
+        
+        Args:
+            message_type: The type of message to search for
+            field: The field to search in
+            value: The value to search for
+            page: The page number (1-based)
+            page_size: The number of results per page
+            
+        Returns:
+            Tuple of (list of messages, total count)
+        """
+        if not self.persistent or not self.indexed or not self.index_helper:
+            return [], 0
+            
+        return self.index_helper.search_messages(message_type, field, value, page, page_size)
 
     def load_peers(self) -> List[Tuple[str, int]]:
         """
@@ -138,6 +187,8 @@ class ChaincraftNode:
             self.socket.close()
         if self.persistent:
             self.db.close()
+        if self.index_helper:
+            self.index_helper.close()
 
     def listen_for_messages(self) -> None:
         """
@@ -339,6 +390,11 @@ class ChaincraftNode:
         self.db[message_hash] = message_str
         if self.debug:
             print(f"Node {self.port}: Received new object with hash {message_hash} Object: {message_str}")
+        
+        # Index the message if persistent and indexed are both True
+        if self.persistent and self.indexed and self.index_helper:
+            self.index_helper.index_message(message_hash, message_str)
+            
         self.broadcast(message_str)
 
     def _handle_peer_discovery(self, shared_message: SharedMessage) -> None:
@@ -500,6 +556,10 @@ class ChaincraftNode:
         message: str = new_object.to_json()
         message_hash: str = self.broadcast(message)
         self.db[message_hash] = message
+        
+        # Index the message if persistent and indexed are both True
+        if self.persistent and self.indexed and self.index_helper:
+            self.index_helper.index_message(message_hash, message)
 
         if self.persistent:
             self.db_sync()
