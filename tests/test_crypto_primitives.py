@@ -12,11 +12,20 @@ from crypto_primitives.encrypt import SymmetricEncryption
 class TestCryptoPrimitives(unittest.TestCase):
 
     def test_pow(self):
-        pow_primitive = ProofOfWorkPrimitive(difficulty_bits=12)  # smaller difficulty for test
+        # Use a small difficulty value for testing
+        pow_primitive = ProofOfWorkPrimitive(difficulty=2**12)
         challenge = "HelloWorld"
         nonce, hash_hex = pow_primitive.create_proof(challenge)
+        
         # Check proof
         self.assertTrue(pow_primitive.verify_proof(challenge, nonce, hash_hex))
+        
+        # Verify that the hash modulo difficulty equals 0
+        calculated = int(hash_hex, 16)
+        self.assertEqual(calculated % pow_primitive.difficulty, 0)
+        
+        # Test with incorrect nonce
+        self.assertFalse(pow_primitive.verify_proof(challenge, nonce + 1, hash_hex))
 
     def test_vdf(self):
         # Use fewer iterations for testing speed
