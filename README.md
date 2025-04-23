@@ -1,9 +1,11 @@
 # Chaincraft
 
+[![Python 3](https://img.shields.io/badge/python-3.8%2B-blue?logo=python)](https://www.python.org/downloads/)
 [![Python Unit Tests](https://github.com/google/adk-python/actions/workflows/python-unit-tests.yml/badge.svg)]([https://github.com/google/adk-python/actions/workflows/python-unit-tests.yml](https://github.com/jio-gl/chaincraft/blob/main/.github/workflows/python-app.yml))
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Project Status](https://img.shields.io/badge/status-in%20development-yellow)](https://github.com/jio-gl/chaincraft)
 [![Blockchain](https://img.shields.io/badge/blockchain-educational-blueviolet)](https://github.com/jio-gl/chaincraft)
+[![ECDSA](https://img.shields.io/badge/ECDSA-supported-green)](https://github.com/jio-gl/chaincraft)
+[![Project Status](https://img.shields.io/badge/status-in%20development-yellow)](https://github.com/jio-gl/chaincraft)
 
 **A platform for blockchain education and prototyping**
 
