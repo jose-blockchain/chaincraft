@@ -151,7 +151,7 @@ Contributions to Chaincraft are welcome! This is an educational project aimed at
 - ✅ Shared Objects: State synchronization between nodes  
 - ✅ Merklelized Storage: Efficient state synchronization  
 - ✅ Additional Cryptographic Primitives  
-- ⬜ Indexing (Validated Message Type can have some indexed fields)  
+- ✅ Indexing (Validated Message Type can have some indexed fields)  
 - ⬜ Transaction Validation  
 - ⬜ Consensus Mechanisms  
 - ⬜ Smart Contracts  
