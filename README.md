@@ -1,6 +1,7 @@
 # Chaincraft
 
 [![Python Unit Tests](https://github.com/google/adk-python/actions/workflows/python-unit-tests.yml/badge.svg)]([https://github.com/google/adk-python/actions/workflows/python-unit-tests.yml](https://github.com/jio-gl/chaincraft/blob/main/.github/workflows/python-app.yml))
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **A platform for blockchain education and prototyping**
 
