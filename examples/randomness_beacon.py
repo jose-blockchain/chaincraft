@@ -18,7 +18,9 @@ class RandomnessBeacon(SharedObject):
         self.block_by_hash = {}  # Quick lookup by hash
         self.ledger = {}  # Tracks blocks mined by each address
         self.coinbase_address = coinbase_address  # This node's mining address
-        self.pow_primitive = ProofOfWorkPrimitive(difficulty_bits=difficulty_bits)
+        # Convert difficulty_bits to difficulty value (2^difficulty_bits)
+        self.difficulty = 2**difficulty_bits
+        self.pow_primitive = ProofOfWorkPrimitive(difficulty=self.difficulty)
         self.block_replacement_event = threading.Event()  # Event to signal block replacements
         self.block_change_lock = threading.Lock()  # Lock for thread safety
         
