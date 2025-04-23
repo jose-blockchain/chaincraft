@@ -69,7 +69,7 @@ def wait_for_chain_sync(beacons, expected_height, timeout=30):
 
 class TestRandomnessBeacon(unittest.TestCase):
     
-    __DIFFICULTY = 18  # Adjusted from 20 to 18 to make tests take ~15 seconds
+    __DIFFICULTY = 18  # Adjusted from 23 to 18 to make tests take ~15 seconds
 
     def setUp(self):
         self.nodes = []
