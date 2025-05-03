@@ -157,10 +157,10 @@ Contributions to Chaincraft are welcome! This is an educational project aimed at
 - ✅ Merklelized Storage: Efficient state synchronization  
 - ✅ Additional Cryptographic Primitives  
 - ✅ Indexing (Validated Message Type can have some indexed fields)  
-- ✅ Transaction Validation  
 - ✅ Consensus Mechanisms  
 - ✅ Proof of Work
 - ✅ Practical Byzantine Fault Tolerance (PBFT) or Tenderming (simpler)
+- ⬜ Transaction Validation for Ledgers (Balance-based and UTXO-based) 
 - ⬜ Proof of Stake  
 - ⬜ Proof of Authority  
 - ⬜ Proof of Elapsed Time  
