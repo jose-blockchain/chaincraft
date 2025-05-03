@@ -157,11 +157,10 @@ Contributions to Chaincraft are welcome! This is an educational project aimed at
 - ✅ Merklelized Storage: Efficient state synchronization  
 - ✅ Additional Cryptographic Primitives  
 - ✅ Indexing (Validated Message Type can have some indexed fields)  
-- ⬜ Transaction Validation  
-- ⬜ Consensus Mechanisms  
-- ⬜ Smart Contracts  
-- ⬜ State Machine Replication  
-- ⬜ Sharding  
+- ✅ Transaction Validation  
+- ✅ Consensus Mechanisms  
+- ✅ Proof of Work
+- ✅ Practical Byzantine Fault Tolerance (PBFT) or Tenderming (simpler)
 - ⬜ Proof of Stake  
 - ⬜ Proof of Authority  
 - ⬜ Proof of Elapsed Time  
@@ -171,3 +170,6 @@ Contributions to Chaincraft are welcome! This is an educational project aimed at
 - ⬜ Proof of Stake with PoW and VDF  
 - ⬜ Proof of Stake with PoW and VRF  
 - ⬜ Proof of Stake with PoW and VDF and VRF  
+- ⬜ Smart Contracts  
+- ⬜ State Machine Replication  
+- ⬜ Sharding  
