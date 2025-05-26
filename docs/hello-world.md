@@ -11,12 +11,14 @@ The `chaincraft-cli.py` script accepts the following command-line parameters:
 - `-r`, `--random-port`: Use a random port number instead of the default or specified port
 - `-m`, `--memory`: Use non-persistent memory storage instead of the default persistent storage
 - `-s HOST:PORT`, `--seed-peer HOST:PORT`: Specify a seed peer to connect to for initial peer discovery
+- `-c`, `--compression`: Enable message compression (default: off)
 
 If no parameters are provided, the script will start a node with the following default settings:
 - Debugging disabled
 - Port 21000
 - Persistent storage
 - No seed peer
+- Compression disabled
 
 ## Tutorial Steps
 

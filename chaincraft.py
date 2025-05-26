@@ -31,7 +31,8 @@ class ChaincraftNode:
         debug: bool = False,
         local_discovery: bool = True,
         shared_objects: Optional[List[SharedObject]] = None,
-        port: Optional[int] = None
+        port: Optional[int] = None,
+        use_compression: bool = False
     ) -> None:
         """
         Initialize the ChaincraftNode with optional parameters.
@@ -39,6 +40,7 @@ class ChaincraftNode:
         self.max_peers: int = max_peers
         self.use_fixed_address: bool = use_fixed_address
         self.indexed: bool = indexed
+        self.use_compression: bool = use_compression
 
         if port is not None:
             self.host: str = '127.0.0.1'
@@ -287,9 +289,12 @@ class ChaincraftNode:
 
     def decompress_message(self, compressed_message: bytes) -> str:
         """
-        Decompress bytes into a string using zlib.
+        Decompress or decode bytes into a string depending on use_compression flag.
         """
-        return zlib.decompress(compressed_message).decode()
+        if self.use_compression:
+            return zlib.decompress(compressed_message).decode()
+        else:
+            return compressed_message.decode()
 
     def hash_message(self, compressed_message: bytes) -> str:
         """
@@ -596,10 +601,13 @@ class ChaincraftNode:
 
     def compress_message(self, message: str) -> bytes:
         """
-        Compress a string message using zlib.
+        Compress or encode a string message depending on use_compression flag.
         """
         if isinstance(message, str):
-            return zlib.compress(message.encode())
+            if self.use_compression:
+                return zlib.compress(message.encode())
+            else:
+                return message.encode()
         else:
             raise TypeError(f"Expected str, got {type(message)}")
     
