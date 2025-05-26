@@ -10,7 +10,7 @@ def main():
     parser.add_argument('-r', '--random-port', action='store_true', help='Use a random port number')
     parser.add_argument('-m', '--memory', action='store_true', help='Use non-persistent memory storage')
     parser.add_argument('-s', '--seed-peer', help='Specify a seed peer to connect to (host:port)')
-    parser.add_argument('-c', '--compression', action='store_true', help='Enable message compression')
+    parser.add_argument('-c', '--compression', action='store_true', help='Enable message compression (default: off)')
     args = parser.parse_args()
 
     port = args.port if not args.random_port else None
