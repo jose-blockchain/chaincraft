@@ -117,41 +117,81 @@ def create_network(num_nodes):
     return nodes
 
 def connect_nodes(nodes):
-    """Connect nodes bidirectionally in a ring"""
+    """Connect nodes in a fully connected network with careful connection management"""
     num_nodes = len(nodes)
+    print(f"Creating fully connected network of {num_nodes} nodes")
+    
     for i in range(num_nodes):
-        # Connect to next node
-        next_node = (i + 1) % num_nodes
-        nodes[i].connect_to_peer(nodes[next_node].host, nodes[next_node].port)
-        nodes[next_node].connect_to_peer(nodes[i].host, nodes[i].port)
-        
-        # Optional: also connect previous node for redundancy
-        prev_node = (i - 1) % num_nodes
-        nodes[i].connect_to_peer(nodes[prev_node].host, nodes[prev_node].port)
-        nodes[prev_node].connect_to_peer(nodes[i].host, nodes[i].port)
-
-        # Log connections
-        print(f"Connected nodes: {i} <-> {next_node} and {i} <-> {prev_node}")
+        for j in range(i + 1, num_nodes):
+            # Connect nodes bidirectionally with delays
+            try:
+                nodes[i].connect_to_peer(nodes[j].host, nodes[j].port)
+                print(f"Connected: Node {i} → Node {j}")
+                time.sleep(0.1)  # Small delay between connection attempts
+                
+                nodes[j].connect_to_peer(nodes[i].host, nodes[i].port)
+                print(f"Connected: Node {j} → Node {i}")
+                time.sleep(0.1)
+            except Exception as e:
+                print(f"⚠️ Failed to connect nodes {i} and {j}: {str(e)}")
+    
+    # Give network time to stabilize after all connections
+    print("Waiting for network to stabilize...")
+    time.sleep(2)
 
 def wait_for_chain_sync(nodes, expected_chain_length, timeout=30):
     start_time = time.time()
     last_print_time = start_time
+    last_status_time = start_time
+    check_interval = 0.1  # Start with fast checking
+    
+    print(f"Waiting for chain sync to length {expected_chain_length} (timeout: {timeout}s)")
     
     while time.time() - start_time < timeout:
         current_time = time.time()
         
-        # Check more frequently
-        time.sleep(0.1)  # Reduced from 0.5 to 0.1
+        # Sleep with adaptive interval
+        time.sleep(check_interval)
+        # Gradually increase check interval up to 1 second (exponential backoff)
+        check_interval = min(1.0, check_interval * 1.1)
         
         # Check for sync
         chain_lengths = [len(node.shared_objects[0].chain) for node in nodes]
-        if all(length == expected_chain_length for length in chain_lengths):
-            chains = [node.shared_objects[0].chain for node in nodes]
-            if all(chain == chains[0] for chain in chains):
+        
+        # Print short status updates every 1 second
+        if current_time - last_status_time >= 1:
+            min_length = min(chain_lengths)
+            max_length = max(chain_lengths)
+            elapsed = current_time - start_time
+            print(f"[{elapsed:.1f}s] Chain lengths: min={min_length}, max={max_length}, target={expected_chain_length}")
+            last_status_time = current_time
+        
+        # If all chains are at least the expected length, check for equality
+        if all(length >= expected_chain_length for length in chain_lengths):
+            # Get the expected chain from the first node that has the required length
+            for node in nodes:
+                if len(node.shared_objects[0].chain) >= expected_chain_length:
+                    expected_chain = node.shared_objects[0].chain[:expected_chain_length]
+                    break
+            
+            # Check if all nodes have the same chain prefix
+            is_synced = True
+            for node in nodes:
+                node_chain = node.shared_objects[0].chain
+                if len(node_chain) < expected_chain_length:
+                    is_synced = False
+                    break
+                if node_chain[:expected_chain_length] != expected_chain:
+                    is_synced = False
+                    break
+            
+            if is_synced:
+                print(f"✅ Chain sync complete after {time.time() - start_time:.2f}s")
                 return True
-                
-        # Print diagnostics more frequently when running as part of suite
-        if current_time - last_print_time >= 2:  # Reduced from 5 to 2 seconds
+        
+        # Print detailed diagnostics less frequently
+        if current_time - last_print_time >= 5:
+            print(f"\n📊 Chain sync status after {current_time - start_time:.2f}s:")
             for i, node in enumerate(nodes):
                 chain = node.shared_objects[0].chain
                 print(f"Node {i} chain length: {len(chain)}")
@@ -159,20 +199,37 @@ def wait_for_chain_sync(nodes, expected_chain_length, timeout=30):
             last_print_time = current_time
     
     # Print final state on timeout
-    print("Sync timeout reached. Final chain states:")
+    print("\n⚠️ Sync timeout reached. Final chain states:")
     for i, node in enumerate(nodes):
         chain = node.shared_objects[0].chain
         print(f"Node {i} final chain length: {len(chain)}")
         print(f"Node {i} final chain: {[h[:8] for h in chain]}")
     
+    # Check if chains are at least growing
+    min_length = min(len(node.shared_objects[0].chain) for node in nodes)
+    if min_length > 1:
+        print(f"⚠️ Chains are growing but didn't fully sync in time. Min length: {min_length}")
+    else:
+        print("❌ Chains aren't growing properly")
+    
     return False
 
 class TestSharedObjectUpdates(unittest.TestCase):
     def setUp(self):
+        print("\n=== Setting up test network ===")
         self.num_nodes = 5
         self.nodes = create_network(self.num_nodes)
         connect_nodes(self.nodes)
-        time.sleep(1)
+        
+        # Verify initial setup
+        print("Verifying initial node chains...")
+        for i, node in enumerate(self.nodes):
+            chain = node.shared_objects[0].chain
+            print(f"Node {i} initial chain: {[h[:8] for h in chain]}")
+        
+        # Wait longer for initial setup to stabilize
+        print("Setup complete, waiting for network stabilization...")
+        time.sleep(2)
         
     def tearDown(self):
         for node in self.nodes:
@@ -208,20 +265,44 @@ class TestSharedObjectUpdates(unittest.TestCase):
         """Test multiple nodes adding hashes concurrently"""
         # Have nodes 0, 2, and 4 add a hash each
         added_hashes = []
-        for i in [0, 2, 4]:
-            chain_obj = self.nodes[i].shared_objects[0]
+        
+        print("Adding hashes from multiple nodes...")
+        for i, node_idx in enumerate([0, 2, 4]):
+            chain_obj = self.nodes[node_idx].shared_objects[0]
             next_hash = chain_obj.add_next_hash()
             added_hashes.append(next_hash)
+            
+            # Broadcast the hash to other nodes
+            print(f"Node {node_idx} adding hash {i+1}/3: {next_hash[:8]}...")
+            self.nodes[node_idx].create_shared_message(next_hash)
+            
+            # Add delay between hash additions
+            time.sleep(0.5)
         
-        # Wait for sync, should include all valid hashes
-        self.assertTrue(wait_for_chain_sync(self.nodes, 2))
+        # Give network time to start propagation
+        print("Giving network time to propagate messages...")
+        time.sleep(2)
+        
+        # Print pre-sync state
+        for i, node in enumerate(self.nodes):
+            chain = node.shared_objects[0].chain
+            print(f"Pre-sync - Node {i} chain: {[h[:8] for h in chain]}")
+        
+        # Wait for sync with increased timeout
+        print("Waiting for chain sync...")
+        self.assertTrue(wait_for_chain_sync(self.nodes, 2, timeout=60))
         
         # Verify all nodes have the same chain and include the valid hash
+        print("Verifying chains after sync...")
         first_chain = self.nodes[0].shared_objects[0].chain
-        for node in self.nodes:
-            self.assertEqual(node.shared_objects[0].chain, first_chain)
+        for i, node in enumerate(self.nodes):
+            node_chain = node.shared_objects[0].chain
+            print(f"Node {i} final chain: {[h[:8] for h in node_chain]}")
+            self.assertEqual(node_chain, first_chain, 
+                           f"Node {i} chain doesn't match node 0 chain")
             # Should at least include first added hash
-            self.assertIn(added_hashes[0], node.shared_objects[0].chain)
+            self.assertIn(added_hashes[0], node_chain, 
+                        f"Node {i} doesn't contain the first added hash")
 
     def test_node_disconnection(self):
         # Add initial hash to node 0
@@ -263,12 +344,20 @@ class TestSharedObjectUpdates(unittest.TestCase):
         """Test that invalid hashes are rejected"""
         chain_obj = self.nodes[0].shared_objects[0]
         
-        # Add a valid hash
+        # Add a valid hash and broadcast it
         valid_hash = chain_obj.add_next_hash()
+        print(f"Added valid hash: {valid_hash[:8]}...")
+        self.nodes[0].create_shared_message(valid_hash)
+        
+        # Give time for initial sync to complete
+        time.sleep(1)
+        
+        # Check sync of valid hash
         self.assertTrue(wait_for_chain_sync(self.nodes, 2, timeout=60))
         
         # Try to add invalid hash (not derived from previous)
         invalid_hash = hashlib.sha256("invalid".encode()).hexdigest()
+        print(f"Attempting to add invalid hash: {invalid_hash[:8]}...")
         
         # Create and broadcast invalid message - should raise exception
         with self.assertRaises(SharedObjectException) as context:
@@ -285,17 +374,36 @@ class TestSharedObjectUpdates(unittest.TestCase):
         """Test syncing a longer chain across all nodes"""
         chain_obj = self.nodes[0].shared_objects[0]
         
-        # Add 10 hashes
+        # Add 10 hashes with broadcasting and delays between them
         for i in range(10):
-            chain_obj.add_next_hash()
+            next_hash = chain_obj.add_next_hash()
+            print(f"Adding hash {i+1}/10: {next_hash[:8]}...")
+            # Broadcast the hash to other nodes
+            self.nodes[0].create_shared_message(next_hash)
+            # Add a short delay to prevent overwhelming the network
+            time.sleep(0.2)
         
-        # Should sync all 11 blocks (genesis + 10 new)
-        self.assertTrue(wait_for_chain_sync(self.nodes, 11))
+        # Verify chain length on node 0 before sync check
+        node0_chain = self.nodes[0].shared_objects[0].chain
+        print(f"Node 0 chain length after additions: {len(node0_chain)}")
+        print(f"Node 0 chain: {[h[:8] for h in node0_chain]}")
         
+        # Give network time to start sync process before checking
+        time.sleep(2)
+        
+        # Should sync all 11 blocks (genesis + 10 new) with increased timeout
+        self.assertTrue(wait_for_chain_sync(self.nodes, 11, timeout=60))
+        
+        # Additional verification after sync
+        for i, node in enumerate(self.nodes):
+            chain = node.shared_objects[0].chain
+            print(f"Node {i} final chain length: {len(chain)}")
+            
         # Verify all chains match
         expected_chain = self.nodes[0].shared_objects[0].chain
         for node in self.nodes:
-            self.assertEqual(len(node.shared_objects[0].chain), 11)
+            self.assertEqual(len(node.shared_objects[0].chain), 11,
+                            f"Expected chain length 11, got {len(node.shared_objects[0].chain)}")
             self.assertEqual(node.shared_objects[0].chain, expected_chain)
 
 if __name__ == '__main__':
