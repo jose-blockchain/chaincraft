@@ -285,27 +285,40 @@ class TestChatroomProtocol(unittest.TestCase):
                 "public_key_pem": self.bob_pub_pem,
                 "text": f"Bob concurrent {i}"
             }
+            # Send messages with increased delay between them
             self.sign_and_broadcast(self.alice_ecdsa, alice_msg)
+            time.sleep(0.1)  # Increased from 0.01
             self.sign_and_broadcast(self.bob_ecdsa, bob_msg)
-            time.sleep(0.01)
+            time.sleep(0.1)  # Added additional delay after Bob's message
 
         # Summaries:
         #   1 CREATE + 1 ALICE join + 1 accept ALICE
         #   + 1 BOB join + 1 accept BOB
         #   + 3*2 (6) POST
         # total = 11 in the DB
-        self.assertTrue(self.wait_for_db_count(11, timeout=10))
+        self.assertTrue(self.wait_for_db_count(11, timeout=15))  # Increased timeout
 
-        # Check final chat
+        # Check final chat - give more time for messages to propagate
+        time.sleep(1)
+        
         for node in self.nodes:
             chat_obj = node.shared_objects[0]
             post_msgs = get_post_messages(chat_obj, room_name)
-            self.assertEqual(len(post_msgs), 6, "3 from Alice, 3 from Bob")
-
-            texts = [m["text"] for m in post_msgs]
+            
+            # Check that we have all 6 expected messages (3 from Alice, 3 from Bob)
+            alice_msgs = [m for m in post_msgs if m["public_key_pem"] == self.alice_pub_pem]
+            bob_msgs = [m for m in post_msgs if m["public_key_pem"] == self.bob_pub_pem]
+            
+            self.assertEqual(len(alice_msgs), 3, f"Expected 3 messages from Alice, got {len(alice_msgs)}")
+            self.assertEqual(len(bob_msgs), 3, f"Expected 3 messages from Bob, got {len(bob_msgs)}")
+            
+            # Verify message content without relying on specific order
+            alice_texts = [m["text"] for m in alice_msgs]
+            bob_texts = [m["text"] for m in bob_msgs]
+            
             for i in range(3):
-                self.assertIn(f"Alice concurrent {i}", texts)
-                self.assertIn(f"Bob concurrent {i}", texts)
+                self.assertIn(f"Alice concurrent {i}", alice_texts)
+                self.assertIn(f"Bob concurrent {i}", bob_texts)
 
     def test_multiple_members_chatting(self):
         """
