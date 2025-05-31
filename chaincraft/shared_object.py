@@ -1,9 +1,9 @@
 # shared_object.py
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import Any, Dict, List, Optional
 
-from shared_message import SharedMessage
+from .shared_message import SharedMessage
 
 
 class SharedObjectException(Exception):

@@ -5,9 +5,20 @@ import json
 import threading
 import random
 
+
+import os
+import sys
+
+# Try to import from installed package first, fall back to direct imports
+try:
+    from examples.chatroom_protocol import ChatroomObject
+    from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
+except ImportError:
+    # Add parent directory to path as fallback
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from examples.chatroom_protocol import ChatroomObject
+    from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 from chaincraft import ChaincraftNode
-from examples.chatroom_protocol import ChatroomObject
-from crypto_primitives.sign import ECDSASignaturePrimitive
 
 COLOR_RESET = "\033[0m"
 COLOR_CYAN = "\033[96m"
@@ -21,6 +32,7 @@ CHAT_EMOJI = "💬"
 WARN_EMOJI = "⚠️ "
 STAR_EMOJI = "✨"
 
+
 def short_pem_id(pem_str: str) -> str:
     lines = pem_str.strip().splitlines()
     base64_lines = []
@@ -32,10 +44,11 @@ def short_pem_id(pem_str: str) -> str:
     # Combine all base64 lines (no headers)
     b64_content = "".join(base64_lines)
     # Strip trailing '='
-    b64_content = b64_content.rstrip('=')
+    b64_content = b64_content.rstrip("=")
 
     # Return last 7 characters (or fewer if short)
     return b64_content[-7:]
+
 
 class ChatroomCLI:
     def __init__(self, port=None, peer=None, debug=False):
@@ -49,7 +62,7 @@ class ChatroomCLI:
             persistent=False,
             debug=debug,
             port=port if port else random.randint(10000, 60000),
-            local_discovery=True
+            local_discovery=True,
         )
         self.chatroom_object = ChatroomObject()
         self.node.add_shared_object(self.chatroom_object)
@@ -61,14 +74,20 @@ class ChatroomCLI:
             self.node.connect_to_peer(host, int(p), discovery=True)
             self.node.connect_to_peer_locally(host, int(p))
 
-        print(f"{STAR_EMOJI} {COLOR_BOLD}Chatroom CLI started at {self.node.host}:{self.node.port}{COLOR_RESET}")
-        print(f"Your ephemeral ECDSA public key (PEM):\n{COLOR_CYAN}{self.pub_pem}{COLOR_RESET}\n")
+        print(
+            f"{STAR_EMOJI} {COLOR_BOLD}Chatroom CLI started at {self.node.host}:{self.node.port}{COLOR_RESET}"
+        )
+        print(
+            f"Your ephemeral ECDSA public key (PEM):\n{COLOR_CYAN}{self.pub_pem}{COLOR_RESET}\n"
+        )
         print(f"Type '{COLOR_BOLD}/help{COLOR_RESET}' to see commands.")
 
         self.current_chatroom = None
         self.last_msg_count = {}
         self.stop_print_thread = False
-        self.print_thread = threading.Thread(target=self._background_printer, daemon=True)
+        self.print_thread = threading.Thread(
+            target=self._background_printer, daemon=True
+        )
         self.print_thread.start()
 
     def _background_printer(self):
@@ -127,7 +146,7 @@ class ChatroomCLI:
                     "message_type": "ACCEPT_MEMBER",
                     "chatroom_name": chatroom_name,
                     "public_key_pem": self.pub_pem,
-                    "requester_key_pem": requester_key
+                    "requester_key_pem": requester_key,
                 }
                 self._sign_and_broadcast(accept_msg)
 
@@ -241,7 +260,9 @@ class ChatroomCLI:
 
     def print_rooms(self):
         if not self.chatroom_object.chatrooms:
-            print("No chatrooms yet. Use /create <chatroom_name> or /join <chatroom_name>.")
+            print(
+                "No chatrooms yet. Use /create <chatroom_name> or /join <chatroom_name>."
+            )
             return
         print(f"{STAR_EMOJI} {COLOR_BOLD}Known chatrooms:{COLOR_RESET}")
         for cname, cdata in self.chatroom_object.chatrooms.items():
@@ -260,9 +281,15 @@ class ChatroomCLI:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Chaincraft Chatroom CLI (short PEM IDs).")
-    parser.add_argument("--port", type=int, help="UDP port to bind this node to (default random)")
-    parser.add_argument("--peer", type=str, help="host:port of a known peer to connect to")
+    parser = argparse.ArgumentParser(
+        description="Chaincraft Chatroom CLI (short PEM IDs)."
+    )
+    parser.add_argument(
+        "--port", type=int, help="UDP port to bind this node to (default random)"
+    )
+    parser.add_argument(
+        "--peer", type=str, help="host:port of a known peer to connect to"
+    )
     parser.add_argument("--debug", action="store_true", help="Enable node debug prints")
     args = parser.parse_args()
 

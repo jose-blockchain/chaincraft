@@ -1,17 +1,23 @@
 import time
 import json
 from typing import List, Dict, Set
+import os
+import sys
 
-from shared_object import SharedObject, SharedObjectException
-from shared_message import SharedMessage
-from crypto_primitives.sign import ECDSASignaturePrimitive
+# Try to import from installed package first, fall back to direct imports
+try:
+    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_message import SharedMessage
+    from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
+except ImportError:
+    # Add parent directory to path as fallback
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_message import SharedMessage
+    from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 
 
-def verify_signature(
-    public_key_pem: str, 
-    payload_str: str, 
-    signature_hex: str
-) -> bool:
+def verify_signature(public_key_pem: str, payload_str: str, signature_hex: str) -> bool:
     """
     Verifies the ECDSA signature for the given payload string.
 
@@ -65,7 +71,13 @@ class ChatroomObject(SharedObject):
         if not isinstance(data, dict):
             return False
 
-        required = ["message_type", "chatroom_name", "public_key_pem", "signature", "timestamp"]
+        required = [
+            "message_type",
+            "chatroom_name",
+            "public_key_pem",
+            "signature",
+            "timestamp",
+        ]
         for field in required:
             if field not in data:
                 return False
@@ -78,11 +90,16 @@ class ChatroomObject(SharedObject):
 
         # 2) Allowed message types
         msg_type = data["message_type"]
-        if msg_type not in ("CREATE_CHATROOM", "REQUEST_JOIN", "ACCEPT_MEMBER", "POST_MESSAGE"):
+        if msg_type not in (
+            "CREATE_CHATROOM",
+            "REQUEST_JOIN",
+            "ACCEPT_MEMBER",
+            "POST_MESSAGE",
+        ):
             return False
 
         # 3) Verify ECDSA signature
-        #    We'll create a JSON payload of all fields except "signature" 
+        #    We'll create a JSON payload of all fields except "signature"
         #    and compare to the public_key_pem field
         signature_hex = data["signature"]
         temp_dict = dict(data)
@@ -146,7 +163,7 @@ class ChatroomObject(SharedObject):
             self.chatrooms[cname] = {
                 "admin": data["public_key_pem"],
                 "members": set(),
-                "messages": []
+                "messages": [],
             }
             # Also store it in the messages array if you want to see it in the CLI
             self.chatrooms[cname]["messages"].append(data)
@@ -164,7 +181,7 @@ class ChatroomObject(SharedObject):
         elif msg_type == "POST_MESSAGE":
             # This is already appended to messages
             self.chatrooms[cname]["messages"].append(data)
-            
+
     # ---------------------------------------------------
     # Non-merkelized stubs below
     # ---------------------------------------------------

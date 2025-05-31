@@ -6,11 +6,13 @@ from chaincraft import ChaincraftNode
 
 random.seed(7331)
 
+
 def create_network(num_nodes, reset_db=False):
     nodes = [ChaincraftNode(reset_db=reset_db) for _ in range(num_nodes)]
     for node in nodes:
         node.start()
     return nodes
+
 
 def connect_nodes(nodes):
     for i, node in enumerate(nodes):
@@ -18,6 +20,7 @@ def connect_nodes(nodes):
             random_node = random.choice(nodes)
             if random_node != node and len(node.peers) < node.max_peers:
                 node.connect_to_peer(random_node.host, random_node.port)
+
 
 def wait_for_propagation(nodes, expected_count, timeout=30):
     start_time = time.time()
@@ -28,6 +31,7 @@ def wait_for_propagation(nodes, expected_count, timeout=30):
             return True
         time.sleep(0.5)
     return False
+
 
 class TestChaincraftNetwork(unittest.TestCase):
     def setUp(self):
@@ -53,7 +57,9 @@ class TestChaincraftNetwork(unittest.TestCase):
         self.assertTrue(wait_for_propagation(self.nodes, 1))
 
         for node in self.nodes:
-            self.assertIn(message_hash, node.db, f"Object not found in node {node.port}")
+            self.assertIn(
+                message_hash, node.db, f"Object not found in node {node.port}"
+            )
             stored_message = node.db[message_hash]
             self.assertIn("Test message", stored_message)
 
@@ -66,7 +72,9 @@ class TestChaincraftNetwork(unittest.TestCase):
         self.assertTrue(wait_for_propagation(self.nodes, 3))
 
         for node in self.nodes:
-            self.assertEqual(len(node.db), 3, f"Node {node.port} has incorrect number of messages")
+            self.assertEqual(
+                len(node.db), 3, f"Node {node.port} has incorrect number of messages"
+            )
 
     def test_network_resilience(self):
         # Create initial message
@@ -97,8 +105,13 @@ class TestChaincraftNetwork(unittest.TestCase):
         self.assertTrue(wait_for_propagation(self.nodes, 2, timeout=60))
 
         for node in self.nodes:
-            self.assertIn(initial_hash, node.db, f"Initial message not found in node {node.port}")
-            self.assertIn(new_hash, node.db, f"New message not found in node {node.port}")
+            self.assertIn(
+                initial_hash, node.db, f"Initial message not found in node {node.port}"
+            )
+            self.assertIn(
+                new_hash, node.db, f"New message not found in node {node.port}"
+            )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

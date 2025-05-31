@@ -4,6 +4,7 @@ import unittest
 import time
 from chaincraft import ChaincraftNode, SharedMessage
 
+
 def wait_for_message_propagation(nodes, expected_count, timeout=5):
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -13,11 +14,13 @@ def wait_for_message_propagation(nodes, expected_count, timeout=5):
         time.sleep(0.1)
     return False
 
+
 def connect_nodes(nodes):
     for i in range(len(nodes)):
         for j in range(i + 1, len(nodes)):
             nodes[i].connect_to_peer(nodes[j].host, nodes[j].port)
             nodes[j].connect_to_peer(nodes[i].host, nodes[i].port)
+
 
 class TestMessageTypes(unittest.TestCase):
     def setUp(self):
@@ -42,14 +45,8 @@ class TestMessageTypes(unittest.TestCase):
         self.nodes[0].accepted_message_types = [
             {
                 "message_type": "User",
-                "mandatory_fields": {
-                    "user_id": int,
-                    "username": str,
-                    "email": str
-                },
-                "optional_fields": {
-                    "bio": str
-                }
+                "mandatory_fields": {"user_id": int, "username": str, "email": str},
+                "optional_fields": {"bio": str},
             }
         ]
 
@@ -58,7 +55,7 @@ class TestMessageTypes(unittest.TestCase):
             "user_id": 1,
             "username": "alice",
             "email": "alice@example.com",
-            "bio": "Hello, I'm Alice!"
+            "bio": "Hello, I'm Alice!",
         }
         self.nodes[0].create_shared_message(message)
         self.assertTrue(wait_for_message_propagation(self.nodes, 1))
@@ -71,11 +68,9 @@ class TestMessageTypes(unittest.TestCase):
                     "post_id": int,
                     "title": str,
                     "content": str,
-                    "tags": [str]
+                    "tags": [str],
                 },
-                "optional_fields": {
-                    "likes": [int]
-                }
+                "optional_fields": {"likes": [int]},
             }
         ]
 
@@ -85,7 +80,7 @@ class TestMessageTypes(unittest.TestCase):
             "title": "My First Post",
             "content": "Hello, world!",
             "tags": ["introduction", "greeting"],
-            "likes": [1, 2, 3]
+            "likes": [1, 2, 3],
         }
         self.nodes[0].create_shared_message(message)
         self.assertTrue(wait_for_message_propagation(self.nodes, 1))
@@ -98,11 +93,9 @@ class TestMessageTypes(unittest.TestCase):
                     "sender": str,
                     "recipient": str,
                     "amount": float,
-                    "signature": "hash"
+                    "signature": "hash",
                 },
-                "optional_fields": {
-                    "timestamp": int
-                }
+                "optional_fields": {"timestamp": int},
             },
             {
                 "message_type": "Block",
@@ -111,12 +104,10 @@ class TestMessageTypes(unittest.TestCase):
                     "transactions": ["Transaction"],
                     "previous_hash": "hash",
                     "timestamp": int,
-                    "nonce": int
+                    "nonce": int,
                 },
-                "optional_fields": {
-                    "miner": str
-                }
-            }
+                "optional_fields": {"miner": str},
+            },
         ]
 
         transaction1 = {
@@ -124,14 +115,14 @@ class TestMessageTypes(unittest.TestCase):
             "sender": "Alice",
             "recipient": "Bob",
             "amount": 10.0,
-            "signature": "a1b2c3d4e5f6g7h8i9j0"
+            "signature": "a1b2c3d4e5f6g7h8i9j0",
         }
         transaction2 = {
             "message_type": "Transaction",
             "sender": "Bob",
             "recipient": "Charlie",
             "amount": 5.0,
-            "signature": "k1l2m3n4o5p6q7r8s9t0"
+            "signature": "k1l2m3n4o5p6q7r8s9t0",
         }
 
         block = {
@@ -140,7 +131,7 @@ class TestMessageTypes(unittest.TestCase):
             "transactions": [transaction1, transaction2],
             "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
             "timestamp": int(time.time()),
-            "nonce": 1234
+            "nonce": 1234,
         }
 
         self.nodes[0].create_shared_message(block)
@@ -154,11 +145,9 @@ class TestMessageTypes(unittest.TestCase):
                     "sender": str,
                     "recipient": str,
                     "amount": float,
-                    "signature": "signature"
+                    "signature": "signature",
                 },
-                "optional_fields": {
-                    "timestamp": int
-                }
+                "optional_fields": {"timestamp": int},
             },
             {
                 "message_type": "Block",
@@ -167,12 +156,10 @@ class TestMessageTypes(unittest.TestCase):
                     "transactions": ["hash"],
                     "previous_hash": "hash",
                     "timestamp": int,
-                    "nonce": int
+                    "nonce": int,
                 },
-                "optional_fields": {
-                    "miner": str
-                }
-            }
+                "optional_fields": {"miner": str},
+            },
         ]
 
         transaction1 = {
@@ -180,14 +167,14 @@ class TestMessageTypes(unittest.TestCase):
             "sender": "Alice",
             "recipient": "Bob",
             "amount": 10.0,
-            "signature": "0x1c7bfeb48e703f73e2a3d4e8916f486ded1d594c12b42e9fcd2f1463ca4f0c2e7cb497a29b7b5c7d1c4e8f8c8d1b1a9d1c3f2e7c4b5a7d6c3e9f8d7c6b5a4d3e2f1c"
+            "signature": "0x1c7bfeb48e703f73e2a3d4e8916f486ded1d594c12b42e9fcd2f1463ca4f0c2e7cb497a29b7b5c7d1c4e8f8c8d1b1a9d1c3f2e7c4b5a7d6c3e9f8d7c6b5a4d3e2f1c",
         }
         transaction2 = {
             "message_type": "Transaction",
             "sender": "Bob",
             "recipient": "Charlie",
             "amount": 5.0,
-            "signature": "0x2d4e6f8c9b7a5d3c1e9f7c5b3a1d8e6f4c2b9a7d5c3e1f9c7b5a3d1e8f6c4b2a9d7c5e3f1c9b7a5d3e1f8c6b4a2d9e7f5c3b1a8d6e4f2c9b7a5d3e1f8c6b4a2d"
+            "signature": "0x2d4e6f8c9b7a5d3c1e9f7c5b3a1d8e6f4c2b9a7d5c3e1f9c7b5a3d1e8f6c4b2a9d7c5e3f1c9b7a5d3e1f8c6b4a2d9e7f5c3b1a8d6e4f2c9b7a5d3e1f8c6b4a2d",
         }
 
         _, shared_transaction1 = self.nodes[0].create_shared_message(transaction1)
@@ -196,14 +183,18 @@ class TestMessageTypes(unittest.TestCase):
         block = {
             "message_type": "Block",
             "block_number": 1,
-            "transactions": [shared_transaction1.data["signature"], shared_transaction2.data["signature"]],
+            "transactions": [
+                shared_transaction1.data["signature"],
+                shared_transaction2.data["signature"],
+            ],
             "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
             "timestamp": int(time.time()),
-            "nonce": 1234
+            "nonce": 1234,
         }
 
         self.nodes[0].create_shared_message(block)
         self.assertTrue(wait_for_message_propagation(self.nodes, 3))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,7 @@ import time
 import random
 from .abstract import KeylessCryptoPrimitive
 
+
 class ProofOfWorkPrimitive(KeylessCryptoPrimitive):
     """
     Simple Proof-of-Work that searches for a nonce such that:

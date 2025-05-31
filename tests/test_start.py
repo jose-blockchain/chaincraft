@@ -5,8 +5,8 @@ import socket
 import dbm.ndbm
 from chaincraft import ChaincraftNode
 
-class TestChaincraftNode(unittest.TestCase):
 
+class TestChaincraftNode(unittest.TestCase):
     def setUp(self):
         self.nodes = []
 
@@ -21,12 +21,12 @@ class TestChaincraftNode(unittest.TestCase):
 
     def test_fixed_address_initialization(self):
         node = self.create_node(use_fixed_address=True)
-        self.assertEqual(node.host, 'localhost')
+        self.assertEqual(node.host, "localhost")
         self.assertEqual(node.port, 21000)
 
     def test_random_address_initialization(self):
         node = self.create_node(use_fixed_address=False)
-        self.assertEqual(node.host, '127.0.0.1')
+        self.assertEqual(node.host, "127.0.0.1")
         self.assertNotEqual(node.port, 7331)
         self.assertTrue(5000 <= node.port <= 9000)
 
@@ -34,7 +34,7 @@ class TestChaincraftNode(unittest.TestCase):
         node = self.create_node(use_fixed_address=False)
         node.start()
         time.sleep(0.1)  # Give some time for the node to start
-        self.assertTrue(hasattr(node, 'socket'))
+        self.assertTrue(hasattr(node, "socket"))
 
     def test_multiple_nodes_different_ports(self):
         node1 = self.create_node()
@@ -50,8 +50,8 @@ class TestChaincraftNode(unittest.TestCase):
 
     def test_max_peers(self):
         node = self.create_node(max_peers=1)
-        node.connect_to_peer('127.0.0.1', 8000)
-        node.connect_to_peer('127.0.0.1', 8001)
+        node.connect_to_peer("127.0.0.1", 8000)
+        node.connect_to_peer("127.0.0.1", 8001)
         self.assertEqual(len(node.peers), 1)
 
     def test_create_shared_message(self):
@@ -63,7 +63,7 @@ class TestChaincraftNode(unittest.TestCase):
     def test_fixed_address_conflict(self):
         node1 = self.create_node(use_fixed_address=True)
         node1.start()
-        
+
         # Attempt to create another node with the same fixed address
         with self.assertRaises(OSError):
             node2 = self.create_node(use_fixed_address=True)
@@ -75,7 +75,7 @@ class TestChaincraftNode(unittest.TestCase):
 
     def test_use_dbm_storage(self):
         node = self.create_node(persistent=True, reset_db=True)
-        self.assertIsInstance(node.db, dbm.ndbm.open("__test__.db", 'c').__class__)
+        self.assertIsInstance(node.db, dbm.ndbm.open("__test__.db", "c").__class__)
 
     def test_reset_db(self):
         node = self.create_node(persistent=True, reset_db=True)
@@ -95,5 +95,6 @@ class TestChaincraftNode(unittest.TestCase):
 
         self.assertIn(message_hash, node2.db)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

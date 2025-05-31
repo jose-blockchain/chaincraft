@@ -3,6 +3,7 @@ import unittest
 import time
 from chaincraft import ChaincraftNode
 
+
 def wait_for_local_peers(node, expected_count, timeout=10):
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -10,6 +11,7 @@ def wait_for_local_peers(node, expected_count, timeout=10):
             return True
         time.sleep(0.5)
     return False
+
 
 class TestLocalDiscovery(unittest.TestCase):
     def setUp(self):
@@ -40,10 +42,10 @@ class TestLocalDiscovery(unittest.TestCase):
         node2.connect_to_peer(node3.host, node3.port)
 
         node1.connect_to_peer_locally(node2.host, node2.port)
-        
+
         # Wait for the local peer discovery to complete
         self.assertTrue(wait_for_local_peers(node1, 2, timeout=10))
-        
+
         # Additional assertions to verify the state of node1's peers
         self.assertEqual(len(node1.peers), 2)
         self.assertIn((node2.host, node2.port), node1.peers)
@@ -62,10 +64,10 @@ class TestLocalDiscovery(unittest.TestCase):
         node2.connect_to_peer(node3.host, node3.port)
 
         node1.connect_to_peer_locally(node2.host, node2.port)
-        
+
         # Wait for a short period to ensure local discovery doesn't happen
         time.sleep(5)
-        
+
         # Assert that node1 only has the directly connected peer
         self.assertEqual(len(node1.peers), 1)
         self.assertIn((node2.host, node2.port), node1.peers)
@@ -79,15 +81,18 @@ class TestLocalDiscovery(unittest.TestCase):
             node.start()
 
         for i in range(num_nodes):
-            nodes[i].connect_to_peer(nodes[(i+1) % num_nodes].host, nodes[(i+1) % num_nodes].port)
+            nodes[i].connect_to_peer(
+                nodes[(i + 1) % num_nodes].host, nodes[(i + 1) % num_nodes].port
+            )
 
         nodes[0].connect_to_peer_locally(nodes[1].host, nodes[1].port)
-        
+
         # Wait for the local peer discovery to complete
         self.assertTrue(wait_for_local_peers(nodes[0], 2, timeout=10))
-        
+
         # Additional assertions to verify the state of nodes[0]'s peers
         self.assertEqual(len(nodes[0].peers), 2)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
