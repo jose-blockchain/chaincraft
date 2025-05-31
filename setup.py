@@ -14,4 +14,4 @@ setup(
     packages=["chaincraft", "examples"],
     package_data={"": ["*.md", "*.txt"]},
     include_package_data=True,
-) 
+)
