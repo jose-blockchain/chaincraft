@@ -3,10 +3,12 @@
 import hashlib
 
 try:
-    import ecdsa
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.exceptions import InvalidSignature
 except ImportError:
     raise ImportError(
-        "Please install 'ecdsa' library (pip install ecdsa) to use VRF functionality."
+        "Please install 'cryptography' library (pip install cryptography) to use VRF functionality."
     )
 
 from .abstract import KeyCryptoPrimitive
@@ -28,8 +30,8 @@ class ECDSAVRFPrimitive(KeyCryptoPrimitive):
         """
         Generate a new ECDSA private key and store both private/public keys in memory.
         """
-        self.private_key = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)
-        self.public_key = self.private_key.get_verifying_key()
+        self.private_key = ec.generate_private_key(ec.SECP256K1())
+        self.public_key = self.private_key.public_key()
 
     def sign(self, data: bytes) -> bytes:
         """
@@ -37,7 +39,11 @@ class ECDSAVRFPrimitive(KeyCryptoPrimitive):
         """
         if not self.private_key:
             raise ValueError("Private key not generated or set.")
-        signature = self.private_key.sign(data)
+        
+        signature = self.private_key.sign(
+            data,
+            ec.ECDSA(hashes.SHA256())
+        )
         return signature
 
     def verify(self, data: bytes, signature: bytes, pub_key=None) -> bool:
@@ -50,9 +56,13 @@ class ECDSAVRFPrimitive(KeyCryptoPrimitive):
             pub_key = self.public_key
 
         try:
-            pub_key.verify(signature, data)
+            pub_key.verify(
+                signature,
+                data,
+                ec.ECDSA(hashes.SHA256())
+            )
             return True
-        except ecdsa.BadSignatureError:
+        except InvalidSignature:
             return False
 
     def vrf_output(self, data: bytes, signature: bytes) -> bytes:

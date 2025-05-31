@@ -1,6 +1,6 @@
 # Chaincraft
 
-[![Python 3](https://img.shields.io/badge/python-3.8%2B-blue?logo=python)](https://www.python.org/downloads/)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Python Unit Tests](https://github.com/google/adk-python/actions/workflows/python-unit-tests.yml/badge.svg)]([https://github.com/google/adk-python/actions/workflows/python-unit-tests.yml](https://github.com/jio-gl/chaincraft/blob/main/.github/workflows/python-app.yml))
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Blockchain](https://img.shields.io/badge/blockchain-educational-blueviolet)](https://github.com/jio-gl/chaincraft)
@@ -54,8 +54,7 @@ pip install -e ".[dev]"
 ### Requirements
 
 - Python 3.8 or higher
-- `ecdsa==0.18.0`
-- `cryptography==44.0.1`
+- `cryptography>=44.0.1`
 
 ## Import Guide
 
@@ -74,7 +73,7 @@ from chaincraft.shared_object import SharedObjectException
 
 # Cryptographic primitives
 from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
-from chaincraft.crypto_primitives.ecdsa import ECDSAPrimitive
+from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 ```
 
 ## Quick Start
@@ -120,7 +119,7 @@ Chaincraft is built on several core components:
 - `ChaincraftNode`: Handles networking, peer discovery, and message gossip  
 - `SharedMessage`: Wraps and serializes data for network transmission  
 - `SharedObject`: Abstract base class for implementing distributed data structures  
-- **Cryptographic primitives**: PoW, VDF, ECDSA, and VRF implementations  
+- **Cryptographic primitives**: PoW, VDF, secure ECDSA, and VRF implementations  
 
 ## Usage
 

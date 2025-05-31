@@ -32,8 +32,7 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "ecdsa==0.18.0",
-    "cryptography==44.0.1",
+    "cryptography>=44.0.1",
 ]
 
 [project.optional-dependencies]

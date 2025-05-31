@@ -30,7 +30,8 @@ def verify_signature(public_key_pem: str, payload_str: str, signature_hex: str) 
         ecdsa.load_pub_key_from_pem(public_key_pem)
         signature_bytes = bytes.fromhex(signature_hex)
         return ecdsa.verify(payload_str.encode("utf-8"), signature_bytes)
-    except Exception:
+    except Exception as e:
+        print(f"Signature verification error: {e}")
         return False
 
 

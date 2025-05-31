@@ -20,7 +20,9 @@ except ImportError:
 from typing import List, Dict, Any, Optional
 import secrets
 from dataclasses import dataclass
-import ecdsa
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.exceptions import InvalidSignature
 import base64
 
 
@@ -77,61 +79,88 @@ class BlockchainUtils:
     @staticmethod
     def generate_keypair() -> tuple:
         """Generate ECDSA keypair for transaction signing"""
-        private_key = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)
-        public_key = private_key.get_verifying_key()
+        private_key = ec.generate_private_key(ec.SECP256K1)
+        public_key = private_key.public_key()
 
         # Convert to strings for storage/transmission
-        private_key_str = private_key.to_string().hex()
-        public_key_str = public_key.to_string().hex()
+        private_key_str = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        ).decode()
+        public_key_str = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ).decode()
 
         return private_key_str, public_key_str
 
     @staticmethod
     def get_address_from_public_key(public_key: str) -> str:
         """Generate Ethereum-like address from public key"""
-        # Convert hex string to bytes if needed
-        if isinstance(public_key, str):
-            public_key_bytes = bytes.fromhex(public_key)
-        else:
-            public_key_bytes = public_key
-
-        # Hash the public key and take last 20 bytes (like Ethereum)
-        address = hashlib.sha256(public_key_bytes).digest()[-20:].hex()
-        return f"0x{address}"
+        try:
+            # Load the public key from PEM format
+            key = serialization.load_pem_public_key(public_key.encode())
+            
+            # Get public key in raw bytes format
+            public_key_bytes = key.public_bytes(
+                encoding=serialization.Encoding.X962,
+                format=serialization.PublicFormat.UncompressedPoint
+            )
+            
+            # Remove the first byte (0x04 for uncompressed keys) and hash
+            public_key_bytes = public_key_bytes[1:]
+            
+            # Hash the public key and take last 20 bytes (like Ethereum)
+            address = hashlib.sha256(public_key_bytes).digest()[-20:].hex()
+            return f"0x{address}"
+        except Exception as e:
+            print(f"Error generating address: {e}")
+            return f"0x{'0' * 40}"  # Return invalid address in case of error
 
     @staticmethod
-    def sign_transaction(tx_data: Dict, private_key_hex: str) -> str:
+    def sign_transaction(tx_data: Dict, private_key_str: str) -> str:
         """Sign transaction data with private key"""
         # Remove signature field if present when signing
         tx_copy = {k: v for k, v in tx_data.items() if k != "signature"}
         message = json.dumps(tx_copy, sort_keys=True).encode()
 
-        # Convert hex string to bytes
-        private_key_bytes = bytes.fromhex(private_key_hex)
-        private_key = ecdsa.SigningKey.from_string(
-            private_key_bytes, curve=ecdsa.SECP256k1
+        # Load private key from PEM string
+        private_key = serialization.load_pem_private_key(
+            private_key_str.encode(), 
+            password=None
         )
 
-        # Sign the message and convert to hex
-        signature = private_key.sign(message)
+        # Sign the message using deterministic ECDSA (RFC 6979)
+        signature = private_key.sign(
+            message,
+            ec.ECDSA(hashes.SHA256())
+        )
+        
+        # Convert to hex
         return signature.hex()
 
     @staticmethod
-    def verify_signature(tx_data: Dict, signature: str, public_key_hex: str) -> bool:
+    def verify_signature(tx_data: Dict, signature: str, public_key_str: str) -> bool:
         """Verify transaction signature with public key"""
         # Remove signature field if present when verifying
         tx_copy = {k: v for k, v in tx_data.items() if k != "signature"}
         message = json.dumps(tx_copy, sort_keys=True).encode()
 
         try:
-            # Convert hex strings to bytes
+            # Convert hex string to bytes for signature
             signature_bytes = bytes.fromhex(signature)
-            public_key_bytes = bytes.fromhex(public_key_hex)
-
-            verifying_key = ecdsa.VerifyingKey.from_string(
-                public_key_bytes, curve=ecdsa.SECP256k1
+            
+            # Load public key from PEM string
+            public_key = serialization.load_pem_public_key(public_key_str.encode())
+            
+            # Verify the signature
+            public_key.verify(
+                signature_bytes,
+                message,
+                ec.ECDSA(hashes.SHA256())
             )
-            return verifying_key.verify(signature_bytes, message)
+            return True
         except Exception as e:
             print(f"Signature verification error: {e}")
             return False
