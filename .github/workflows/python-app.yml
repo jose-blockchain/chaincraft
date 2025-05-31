@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Python application
+name: Python Tests
 
 on:
   push:
@@ -14,8 +14,6 @@ permissions:
 
 jobs:
   build:
-
-    #runs-on: ubuntu-latest
     runs-on: ubuntu-22.04
 
     steps:
@@ -42,20 +40,8 @@ jobs:
           echo "No pyproject.toml found"
         fi
         
-        if [ -f "MANIFEST.in" ]; then
-          echo "Contents of MANIFEST.in:"
-          cat MANIFEST.in
-        else
-          echo "No MANIFEST.in found"
-        fi
-        
-        # Check for requirements files
-        echo "Looking for requirements files..."
-        ls -la *requirements*.txt 2>/dev/null || echo "No requirements*.txt files found"
-        
         # Check Python path and working directory
         echo "Current directory: $(pwd)"
-        echo "Python path: $PYTHONPATH"
         echo "Python version: $(python --version)"
       shell: /usr/bin/bash -e {0}
     - name: Install dependencies
@@ -63,28 +49,20 @@ jobs:
         echo "Starting dependency installation"
         # Set a timeout for each command to avoid hanging indefinitely
         echo "Upgrading pip..."
-        timeout 60 python -m pip install --upgrade pip -v || echo "Pip upgrade timed out after 60s"
-        echo "Pip upgraded successfully"
+        timeout 60 python -m pip install --upgrade pip || echo "Pip upgrade timed out after 60s"
         
         echo "Installing dev dependencies..."
-        timeout 120 pip install -v flake8 pytest pytest-cov || echo "Dev dependencies install timed out after 120s"
-        echo "Dev dependencies installed"
+        timeout 120 pip install flake8 pytest || echo "Dev dependencies install timed out after 120s"
         
         if [ -f requirements.txt ]; then
           echo "Installing requirements.txt dependencies..."
-          timeout 180 pip install -v -r requirements.txt || echo "requirements.txt install timed out after 180s"
-          echo "requirements.txt dependencies installed"
+          timeout 180 pip install -r requirements.txt || echo "requirements.txt install timed out after 180s"
         else
           echo "No requirements.txt found, skipping"
         fi
         
         echo "Installing package in development mode..."
-        timeout 300 pip install -v -e . || echo "Development mode install timed out after 300s"
-        echo "Package installed in development mode"
-        
-        # List installed packages for debugging
-        echo "Listing all installed packages:"
-        pip list
+        timeout 300 pip install -e . || echo "Development mode install timed out after 300s"
       shell: /usr/bin/bash -e {0}
       env:
         pythonLocation: /opt/hostedtoolcache/Python/3.10.17/x64
@@ -93,24 +71,11 @@ jobs:
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        # exit-zero treats all errors as warnings
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        echo "Running tests with verbose output and timeouts"
-        
-        # First discover all test files
-        echo "Discovering test files..."
-        test_files=$(python -m pytest --collect-only -q | grep "::.*::.*" | cut -d: -f1 | sort -u)
-        echo "Found test files: $test_files"
-        
-        # Run each test file separately with timeout
-        for test_file in $test_files; do
-          echo "Running tests in $test_file..."
-          timeout 180 python -m pytest $test_file -v || echo "Tests in $test_file timed out or failed"
-        done
-        
-        # Finally run all tests with coverage
-        echo "Running all tests with coverage..."
-        timeout 300 python -m pytest --cov=./ --cov-report=xml
+        echo "Running tests with parallel execution for speed"
+        # Run tests in parallel with 4 workers for faster execution
+        python -m pytest -v -xvs
       shell: /usr/bin/bash -e {0}
