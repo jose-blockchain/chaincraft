@@ -57,6 +57,26 @@ pip install -e ".[dev]"
 - `ecdsa==0.18.0`
 - `cryptography==44.0.1`
 
+## Import Guide
+
+After installing chaincraft, you can import its components using the package namespace:
+
+```python
+# Main node component
+from chaincraft import ChaincraftNode
+
+# Core components
+from chaincraft.shared_object import SharedObject
+from chaincraft.shared_message import SharedMessage
+
+# Exceptions
+from chaincraft.shared_object import SharedObjectException
+
+# Cryptographic primitives
+from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
+from chaincraft.crypto_primitives.ecdsa import ECDSAPrimitive
+```
+
 ## Quick Start
 
 ### Command Line Interface
@@ -123,8 +143,8 @@ node.create_shared_message("Hello, Chaincraft!")
 ### Creating a Custom Shared Object
 
 ```python
-from shared_object import SharedObject
-from shared_message import SharedMessage
+from chaincraft.shared_object import SharedObject
+from chaincraft.shared_message import SharedMessage
 import hashlib
 import json
 
@@ -155,7 +175,7 @@ class MySharedState(SharedObject):
 ### Using Cryptographic Primitives
 
 ```python
-from crypto_primitives.pow import ProofOfWorkPrimitive
+from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
 
 # Create a Proof of Work challenge
 pow_primitive = ProofOfWorkPrimitive(difficulty_bits=16)
