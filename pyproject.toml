@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chaincraft"
-version = "0.3.2"
+version = "0.4.0"
 description = "A platform for blockchain education and prototyping"
 readme = "README.md"
-license = "MIT"
+license = { text = "MIT" }
 authors = [
     {name = "Chaincraft Contributors", email = "chaincraft@example.com"}
 ]

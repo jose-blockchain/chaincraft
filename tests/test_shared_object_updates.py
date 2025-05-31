@@ -463,9 +463,9 @@ class TestSharedObjectUpdates(unittest.TestCase):
             print(f"Connection attempt {connect_attempts}/{max_attempts}...")
             try:
                 # Connect to node 0 (has all hashes)
-                self.nodes[0].connect_to_peer(self.nodes[4].host, self.nodes[4].port)
+        self.nodes[0].connect_to_peer(self.nodes[4].host, self.nodes[4].port)
                 time.sleep(1)
-                self.nodes[4].connect_to_peer(self.nodes[0].host, self.nodes[0].port)
+        self.nodes[4].connect_to_peer(self.nodes[0].host, self.nodes[0].port)
                 time.sleep(1)
                 
                 # Also connect to node 2 for redundancy
@@ -490,7 +490,7 @@ class TestSharedObjectUpdates(unittest.TestCase):
                 msg = SharedMessage(data=hash_val).to_json()
                 self.nodes[4].handle_message(msg, "test", (self.nodes[0].host, self.nodes[0].port))
                 print(f"Directly sent hash {hash_val[:8]} to node 4")
-                time.sleep(0.5)
+        time.sleep(0.5)
             except Exception as e:
                 print(f"Error sending hash to node 4: {e}")
         
@@ -713,7 +713,7 @@ class TestSharedObjectUpdates(unittest.TestCase):
         for i, node in enumerate(self.nodes):
             chain = node.shared_objects[0].chain
             print(f"Node {i} final chain length: {len(chain)}")
-            
+
             if len(chain) < expected_length:
                 chains_match = False
                 missing_sync.append(i)
