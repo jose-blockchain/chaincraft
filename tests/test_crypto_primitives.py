@@ -13,14 +13,13 @@ try:
     from chaincraft.crypto_primitives.encrypt import SymmetricEncryption
 except ImportError:
     # Add parent directory to path as fallback
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
     from chaincraft.crypto_primitives.vdf import VDFPrimitive
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
     from chaincraft.crypto_primitives.vrf import ECDSAVRFPrimitive
     from chaincraft.crypto_primitives.encrypt import SymmetricEncryption
 import hashlib
-
 
 
 class TestCryptoPrimitives(unittest.TestCase):

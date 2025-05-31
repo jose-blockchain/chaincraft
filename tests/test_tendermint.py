@@ -12,14 +12,30 @@ import sys
 # Try to import from installed package first, fall back to direct imports
 try:
     from chaincraft import ChaincraftNode, SharedMessage
-    from examples.tendermint_bft import TendermintBFT, TendermintNode, create_tendermint_network, ConsensusStep
-    from chaincraft.crypto_primitives.address import generate_new_address, is_valid_address
+    from examples.tendermint_bft import (
+        TendermintBFT,
+        TendermintNode,
+        create_tendermint_network,
+        ConsensusStep,
+    )
+    from chaincraft.crypto_primitives.address import (
+        generate_new_address,
+        is_valid_address,
+    )
 except ImportError:
     # Add parent directory to path as fallback
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     from chaincraft import ChaincraftNode, SharedMessage
-    from examples.tendermint_bft import TendermintBFT, TendermintNode, create_tendermint_network, ConsensusStep
-    from chaincraft.crypto_primitives.address import generate_new_address, is_valid_address
+    from examples.tendermint_bft import (
+        TendermintBFT,
+        TendermintNode,
+        create_tendermint_network,
+        ConsensusStep,
+    )
+    from chaincraft.crypto_primitives.address import (
+        generate_new_address,
+        is_valid_address,
+    )
 
 
 def force_cleanup():

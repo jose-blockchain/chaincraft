@@ -15,7 +15,7 @@ try:
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 except ImportError:
     # Add parent directory to path as fallback
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     from examples.chatroom_protocol import ChatroomObject
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 from chaincraft import ChaincraftNode

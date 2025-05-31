@@ -12,7 +12,7 @@ try:
     from chaincraft.index_helper import IndexHelper
 except ImportError:
     # Add parent directory to path as fallback
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     from chaincraft.shared_message import SharedMessage
     from chaincraft.index_helper import IndexHelper
 from typing import Dict, Any, List

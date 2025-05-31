@@ -13,11 +13,10 @@ try:
     from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
 except ImportError:
     # Add parent directory to path as fallback
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     from chaincraft.shared_object import SharedObject, SharedObjectException
     from chaincraft.shared_message import SharedMessage
     from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
-
 
 
 class RandomnessBeacon(SharedObject):

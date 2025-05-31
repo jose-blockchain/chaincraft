@@ -15,12 +15,18 @@ import sys
 
 # Try to import from installed package first, fall back to direct imports
 try:
-    from chaincraft.crypto_primitives.address import generate_new_address, is_valid_address
+    from chaincraft.crypto_primitives.address import (
+        generate_new_address,
+        is_valid_address,
+    )
     from examples.tendermint_bft import TendermintBFT, TendermintNode
 except ImportError:
     # Add parent directory to path as fallback
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-    from chaincraft.crypto_primitives.address import generate_new_address, is_valid_address
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    from chaincraft.crypto_primitives.address import (
+        generate_new_address,
+        is_valid_address,
+    )
     from examples.tendermint_bft import TendermintBFT, TendermintNode
 import hashlib
 from typing import List, Dict, Any, Optional, Set
