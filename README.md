@@ -149,6 +149,8 @@ Contributions to Chaincraft are welcome! This is an educational project aimed at
 
 ## Current Status (Roadmap)
 
+### Roadmap to version 1.0.0
+
 - ✅ Gossip Protocol: Sharing JSON messages between nodes  
 - ✅ Persistent Storage: Key-value storage for messages  
 - ✅ Peer Discovery: Global and local node discovery  
@@ -167,3 +169,10 @@ Contributions to Chaincraft are welcome! This is an educational project aimed at
 - ⬜ Smart Contracts  
 - ⬜ State Machine Replication  
 - ⬜ Sharding  
+
+### Ideas for version 2.0.0
+
+- Configurable Building Blocks:
+    * choose consensys protocol (PoS, PoW, PoA, etc)
+    * choose ledger type (UTXO, Account Balances, etc)
+    * choose gas auction (Lower Price First, Median Price, etc)
