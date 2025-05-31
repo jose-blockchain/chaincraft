@@ -5,9 +5,20 @@ import json
 import threading
 import random
 
+
+import os
+import sys
+
+# Try to import from installed package first, fall back to direct imports
+try:
+    from examples.chatroom_protocol import ChatroomObject
+    from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
+except ImportError:
+    # Add parent directory to path as fallback
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from examples.chatroom_protocol import ChatroomObject
+    from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 from chaincraft import ChaincraftNode
-from examples.chatroom_protocol import ChatroomObject
-from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 
 COLOR_RESET = "\033[0m"
 COLOR_CYAN = "\033[96m"

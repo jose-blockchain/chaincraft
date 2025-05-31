@@ -2,15 +2,21 @@ import unittest
 import time
 import hashlib
 import json
-from chaincraft import ChaincraftNode
-from examples.randomness_beacon import (
-    RandomnessBeacon,
-    generate_eth_address,
-    BeaconMiner,
-)
-from chaincraft.shared_message import SharedMessage
-
+import os
+import sys
 import random
+
+# Try to import from installed package first, fall back to direct imports
+try:
+    from chaincraft import ChaincraftNode
+    from examples.randomness_beacon import RandomnessBeacon, generate_eth_address, BeaconMiner
+    from chaincraft.shared_message import SharedMessage
+except ImportError:
+    # Add parent directory to path as fallback
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from chaincraft import ChaincraftNode
+    from examples.randomness_beacon import RandomnessBeacon, generate_eth_address, BeaconMiner
+    from chaincraft.shared_message import SharedMessage
 
 random.seed(123)
 

@@ -3,10 +3,23 @@
 from typing import List
 import unittest
 import random
-import time, json, hashlib
-from chaincraft import ChaincraftNode
-from chaincraft.shared_object import SharedObject
-from chaincraft.shared_message import SharedMessage
+import time
+import os
+import sys
+import json
+import hashlib
+
+# Try to import from installed package first, fall back to direct imports
+try:
+    from chaincraft.shared_object import SharedObject
+    from chaincraft.shared_message import SharedMessage
+    from chaincraft import ChaincraftNode
+except ImportError:
+    # Add parent directory to path as fallback
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from chaincraft.shared_object import SharedObject
+    from chaincraft.shared_message import SharedMessage
+    from chaincraft import ChaincraftNode
 
 random.seed(7331)
 

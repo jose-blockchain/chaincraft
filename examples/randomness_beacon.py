@@ -4,10 +4,20 @@ import hashlib
 import time
 import os
 import threading
+import sys
 
-from chaincraft.shared_object import SharedObject, SharedObjectException
-from chaincraft.shared_message import SharedMessage
-from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
+# Try to import from installed package first, fall back to direct imports
+try:
+    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_message import SharedMessage
+    from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
+except ImportError:
+    # Add parent directory to path as fallback
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_message import SharedMessage
+    from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
+
 
 
 class RandomnessBeacon(SharedObject):
@@ -370,8 +380,6 @@ class BeaconMiner:
 
     def start(self):
         """Start the mining process in a background thread"""
-        import threading
-
         self.running = True
         self.thread = threading.Thread(target=self._mine_loop, daemon=True)
         self.thread.start()

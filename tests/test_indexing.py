@@ -2,11 +2,22 @@ import unittest
 import json
 import os
 import time
+
+import os
+import sys
+
+# Try to import from installed package first, fall back to direct imports
+try:
+    from chaincraft.shared_message import SharedMessage
+    from chaincraft.index_helper import IndexHelper
+except ImportError:
+    # Add parent directory to path as fallback
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from chaincraft.shared_message import SharedMessage
+    from chaincraft.index_helper import IndexHelper
 from typing import Dict, Any, List
 
 from chaincraft import ChaincraftNode
-from chaincraft.shared_message import SharedMessage
-from chaincraft.index_helper import IndexHelper
 
 
 class TestIndexing(unittest.TestCase):

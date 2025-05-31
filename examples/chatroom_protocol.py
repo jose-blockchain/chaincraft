@@ -1,10 +1,20 @@
 import time
 import json
 from typing import List, Dict, Set
+import os
+import sys
 
-from chaincraft.shared_object import SharedObject, SharedObjectException
-from chaincraft.shared_message import SharedMessage
-from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
+# Try to import from installed package first, fall back to direct imports
+try:
+    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_message import SharedMessage
+    from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
+except ImportError:
+    # Add parent directory to path as fallback
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_message import SharedMessage
+    from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 
 
 def verify_signature(public_key_pem: str, payload_str: str, signature_hex: str) -> bool:

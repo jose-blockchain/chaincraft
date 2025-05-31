@@ -3,14 +3,22 @@
 import unittest
 import time
 import json
-from chaincraft import ChaincraftNode
-from chaincraft.shared_message import SharedMessage
+import os
+import sys
 
-# Import your updated ChatroomObject that appends every message type
-from examples.chatroom_protocol import ChatroomObject
-
-# Import ECDSA for signing and verifying
-from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
+# Try to import from installed package first, fall back to direct imports
+try:
+    from chaincraft import ChaincraftNode
+    from chaincraft.shared_message import SharedMessage
+    from examples.chatroom_protocol import ChatroomObject
+    from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
+except ImportError:
+    # Add parent directory to path as fallback
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from chaincraft import ChaincraftNode
+    from chaincraft.shared_message import SharedMessage
+    from examples.chatroom_protocol import ChatroomObject
+    from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 
 
 def get_post_messages(chat_obj, room_name):

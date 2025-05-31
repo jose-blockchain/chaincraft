@@ -10,18 +10,31 @@ import sys
 from enum import Enum, auto
 import queue
 
-# Fix imports to use the correct module paths
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from chaincraft.shared_object import SharedObject, SharedObjectException
-from chaincraft.shared_message import SharedMessage
-from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
-from chaincraft.crypto_primitives.address import (
-    generate_new_address,
-    is_valid_address,
-    private_key_to_address,
-    recover_public_key,
-    public_key_to_address,
-)
+# Try to import from installed package first, fall back to direct imports
+try:
+    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_message import SharedMessage
+    from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
+    from chaincraft.crypto_primitives.address import (
+        generate_new_address,
+        is_valid_address,
+        private_key_to_address,
+        recover_public_key,
+        public_key_to_address,
+    )
+except ImportError:
+    # Add parent directory to path as fallback
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_message import SharedMessage
+    from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
+    from chaincraft.crypto_primitives.address import (
+        generate_new_address,
+        is_valid_address,
+        private_key_to_address,
+        recover_public_key,
+        public_key_to_address,
+    )
 
 # Global list of all nodes in the network
 global_nodes = []
@@ -150,11 +163,6 @@ class TendermintBFT(SharedObject):
         self, vote_data: Dict[str, Any], signature_hex: str, validator_address: str
     ) -> bool:
         """Verify a validator's signature on vote data using ecrecover"""
-        from chaincraft.crypto_primitives.address import (
-            recover_public_key,
-            public_key_to_address,
-        )
-
         try:
             # Create a canonical representation of the vote data
             vote_canonical = json.dumps(vote_data, sort_keys=True).encode()

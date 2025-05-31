@@ -4,13 +4,24 @@ import hashlib
 import json
 import time
 import random
+
+import os
+import sys
+
+# Try to import from installed package first, fall back to direct imports
+try:
+    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_message import SharedMessage
+except ImportError:
+    # Add parent directory to path as fallback
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_message import SharedMessage
 from typing import List, Dict, Any, Optional
 import secrets
 from dataclasses import dataclass
 import ecdsa
 import base64
-from chaincraft.shared_object import SharedObject, SharedObjectException
-from chaincraft.shared_message import SharedMessage
 
 
 class BlockchainUtils:
