@@ -2,11 +2,11 @@ import unittest
 import time
 import hashlib
 
-from crypto_primitives.pow import ProofOfWorkPrimitive
-from crypto_primitives.vdf import VDFPrimitive
-from crypto_primitives.sign import ECDSASignaturePrimitive
-from crypto_primitives.vrf import ECDSAVRFPrimitive
-from crypto_primitives.encrypt import SymmetricEncryption
+from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
+from chaincraft.crypto_primitives.vdf import VDFPrimitive
+from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
+from chaincraft.crypto_primitives.vrf import ECDSAVRFPrimitive
+from chaincraft.crypto_primitives.encrypt import SymmetricEncryption
 
 
 class TestCryptoPrimitives(unittest.TestCase):

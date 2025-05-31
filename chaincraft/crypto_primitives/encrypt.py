@@ -1,5 +1,5 @@
 from cryptography.fernet import Fernet
-from crypto_primitives.abstract import KeyCryptoPrimitive
+from .abstract import KeyCryptoPrimitive
 
 class SymmetricEncryption(KeyCryptoPrimitive):
     def __init__(self, key=None):

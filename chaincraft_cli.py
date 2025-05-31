@@ -1,9 +1,10 @@
-# chaincraft-cli.py
+# chaincraft_cli.py
 
 import argparse
 from chaincraft import ChaincraftNode
 
 def main():
+    """Main entry point for the chaincraft CLI."""
     parser = argparse.ArgumentParser(description='Chaincraft CLI')
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debugging')
     parser.add_argument('-p', '--port', type=int, default=21000, help='Specify port number (default: 21000)')
@@ -23,7 +24,7 @@ def main():
 
     print(f"Node started on {node.host}:{node.port}")
     print("Enter a message to broadcast (press Ctrl+C to quit):")
-    print("Usage: python chaincraft-cli.py [-d] [-p PORT] [-r] [-m] [-s HOST:PORT]")
+    print("Usage: chaincraft-cli [-d] [-p PORT] [-r] [-m] [-s HOST:PORT]")
 
     try:
         while True:
@@ -35,4 +36,4 @@ def main():
         node.close()
 
 if __name__ == '__main__':
-    main()
+    main() 

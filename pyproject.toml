@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chaincraft"
+version = "0.3.2"
+description = "A platform for blockchain education and prototyping"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Chaincraft Contributors", email = "chaincraft@example.com"}
+]
+maintainers = [
+    {name = "Chaincraft Contributors", email = "chaincraft@example.com"}
+]
+keywords = ["blockchain", "education", "prototyping", "distributed", "consensus"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Education",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Distributed Computing",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "ecdsa==0.18.0",
+    "cryptography==44.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "flake8>=3.8.0",
+    "black>=21.0.0",
+    "mypy>=0.910",
+]
+
+[project.urls]
+Homepage = "https://github.com/jio-gl/chaincraft"
+Repository = "https://github.com/jio-gl/chaincraft"
+Documentation = "https://github.com/jio-gl/chaincraft#readme"
+"Bug Tracker" = "https://github.com/jio-gl/chaincraft/issues"
+
+[project.scripts]
+chaincraft-cli = "chaincraft_cli:main"
+
+[tool.setuptools]
+py-modules = ["chaincraft_cli"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["chaincraft*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true 

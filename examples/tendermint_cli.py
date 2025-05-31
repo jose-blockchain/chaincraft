@@ -16,7 +16,7 @@ from typing import List, Dict, Any, Optional, Set
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from chaincraft import ChaincraftNode
-from crypto_primitives.address import generate_new_address, is_valid_address
+from chaincraft.crypto_primitives.address import generate_new_address, is_valid_address
 from examples.tendermint_bft import TendermintBFT, TendermintNode
 
 

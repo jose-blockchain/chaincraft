@@ -7,7 +7,7 @@ import threading
 
 from shared_object import SharedObject, SharedObjectException
 from shared_message import SharedMessage
-from crypto_primitives.pow import ProofOfWorkPrimitive
+from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
 
 class RandomnessBeacon(SharedObject):
     # Genesis block hash - known to everyone

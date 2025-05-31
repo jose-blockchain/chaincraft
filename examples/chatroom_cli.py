@@ -7,7 +7,7 @@ import random
 
 from chaincraft import ChaincraftNode
 from examples.chatroom_protocol import ChatroomObject
-from crypto_primitives.sign import ECDSASignaturePrimitive
+from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 
 COLOR_RESET = "\033[0m"
 COLOR_CYAN = "\033[96m"

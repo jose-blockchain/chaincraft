@@ -10,7 +10,7 @@ import signal
 import sys
 from chaincraft import ChaincraftNode, SharedMessage
 from examples.tendermint_bft import TendermintBFT, TendermintNode, create_tendermint_network, ConsensusStep
-from crypto_primitives.address import generate_new_address, is_valid_address
+from chaincraft.crypto_primitives.address import generate_new_address, is_valid_address
 
 def force_cleanup():
     """Force cleanup of any stuck processes"""

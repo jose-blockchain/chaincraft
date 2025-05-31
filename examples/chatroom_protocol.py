@@ -4,7 +4,7 @@ from typing import List, Dict, Set
 
 from shared_object import SharedObject, SharedObjectException
 from shared_message import SharedMessage
-from crypto_primitives.sign import ECDSASignaturePrimitive
+from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 
 
 def verify_signature(

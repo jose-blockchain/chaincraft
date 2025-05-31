@@ -6,6 +6,7 @@
 [![Blockchain](https://img.shields.io/badge/blockchain-educational-blueviolet)](https://github.com/jio-gl/chaincraft)
 [![ECDSA](https://img.shields.io/badge/ECDSA-supported-green)](https://github.com/jio-gl/chaincraft)
 [![Project Status](https://img.shields.io/badge/status-in%20development-yellow)](https://github.com/jio-gl/chaincraft)
+[![PyPI version](https://badge.fury.io/py/chaincraft.svg)](https://badge.fury.io/py/chaincraft)
 
 **A platform for blockchain education and prototyping**
 
@@ -19,6 +20,78 @@ Chaincraft is a Python-based framework for building and experimenting with block
 - **Persistence**: Optional persistent storage for nodes and messages  
 - **Data Validation**: Type checking and schema validation for messages  
 - **Merklelized Storage**: Support for efficient state synchronization  
+
+## Installation
+
+### Install from PyPI
+
+The easiest way to install Chaincraft is via pip:
+
+```bash
+pip install chaincraft
+```
+
+### Install from Source
+
+For development or to get the latest features:
+
+```bash
+git clone https://github.com/jio-gl/chaincraft.git
+cd chaincraft
+pip install -e .
+```
+
+### Development Installation
+
+To install with development dependencies:
+
+```bash
+git clone https://github.com/jio-gl/chaincraft.git
+cd chaincraft
+pip install -e ".[dev]"
+```
+
+### Requirements
+
+- Python 3.8 or higher
+- `ecdsa==0.18.0`
+- `cryptography==44.0.1`
+
+## Quick Start
+
+### Command Line Interface
+
+After installation, you can use the `chaincraft-cli` command:
+
+```bash
+# Start a node with default settings
+chaincraft-cli
+
+# Start a node on a specific port
+chaincraft-cli -p 8000
+
+# Start a node and connect to a seed peer
+chaincraft-cli -s 127.0.0.1:21000
+
+# Enable debugging and use memory storage
+chaincraft-cli -d -m
+```
+
+### Python API
+
+```python
+import chaincraft
+
+# Create and start a node
+node = chaincraft.ChaincraftNode()
+node.start()
+
+# Connect to another node
+node.connect_to_peer("127.0.0.1", 21000)
+
+# Create and broadcast a message
+node.create_shared_message("Hello, Chaincraft!")
+```
 
 ## Architecture
 

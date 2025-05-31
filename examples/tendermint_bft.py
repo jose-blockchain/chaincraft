@@ -14,8 +14,8 @@ import queue
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shared_object import SharedObject, SharedObjectException
 from shared_message import SharedMessage
-from crypto_primitives.sign import ECDSASignaturePrimitive
-from crypto_primitives.address import generate_new_address, is_valid_address, private_key_to_address, recover_public_key, public_key_to_address
+from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
+from chaincraft.crypto_primitives.address import generate_new_address, is_valid_address, private_key_to_address, recover_public_key, public_key_to_address
 
 # Global list of all nodes in the network
 global_nodes = []
@@ -140,7 +140,7 @@ class TendermintBFT(SharedObject):
 
     def verify_vote_signature(self, vote_data: Dict[str, Any], signature_hex: str, validator_address: str) -> bool:
         """Verify a validator's signature on vote data using ecrecover"""
-        from crypto_primitives.address import recover_public_key, public_key_to_address
+        from chaincraft.crypto_primitives.address import recover_public_key, public_key_to_address
         
         try:
             # Create a canonical representation of the vote data

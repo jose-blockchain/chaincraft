@@ -11,9 +11,9 @@ import dbm.ndbm
 import os
 from typing import List, Tuple, Dict, Union, Optional, Any, Set
 
-from shared_object import SharedObject, SharedObjectException
-from shared_message import SharedMessage
-from index_helper import IndexHelper
+from .shared_object import SharedObject, SharedObjectException
+from .shared_message import SharedMessage
+from .index_helper import IndexHelper
 
 
 class ChaincraftNode:
