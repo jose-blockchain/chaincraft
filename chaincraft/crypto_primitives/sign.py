@@ -3,7 +3,9 @@
 try:
     import ecdsa
 except ImportError:
-    raise ImportError("Please install 'ecdsa' library (pip install ecdsa) to use ECDSA functionality.")
+    raise ImportError(
+        "Please install 'ecdsa' library (pip install ecdsa) to use ECDSA functionality."
+    )
 
 from .abstract import KeyCryptoPrimitive
 import hashlib
@@ -16,7 +18,7 @@ class ECDSASignaturePrimitive(KeyCryptoPrimitive):
 
     def __init__(self):
         self.private_key = None  # ecdsa.SigningKey
-        self.public_key = None   # ecdsa.VerifyingKey
+        self.public_key = None  # ecdsa.VerifyingKey
 
     def generate_key(self):
         """
@@ -57,7 +59,9 @@ class ECDSASignaturePrimitive(KeyCryptoPrimitive):
         Return the public key as a PEM-encoded string.
         """
         if not self.public_key:
-            raise ValueError("Public key not available (generate_key or set_key first).")
+            raise ValueError(
+                "Public key not available (generate_key or set_key first)."
+            )
         # to_pem() returns bytes; we decode to str for convenience
         return self.public_key.to_pem().decode("ascii")
 
@@ -86,32 +90,34 @@ class ECDSASignaturePrimitive(KeyCryptoPrimitive):
         """
         if not self.private_key:
             raise ValueError("Private key not generated or set.")
-            
+
         # Create a deterministic signature (RFC 6979)
         signature = self.private_key.sign_deterministic(
-            data,
-            hashfunc=hashlib.sha256,
-            sigencode=ecdsa.util.sigencode_string
+            data, hashfunc=hashlib.sha256, sigencode=ecdsa.util.sigencode_string
         )
-        
+
         # Calculate recovery id (v)
         # This is a simplified approach - in production code, you'd need to
         # verify which of the two possible public keys matches the actual one
         for v in range(2):
             try:
-                recovered_keys = ecdsa.VerifyingKey.from_public_key_recovery_with_digest(
-                    signature=signature,
-                    digest=data,
-                    curve=ecdsa.SECP256k1,
-                    sigdecode=ecdsa.util.sigdecode_string
+                recovered_keys = (
+                    ecdsa.VerifyingKey.from_public_key_recovery_with_digest(
+                        signature=signature,
+                        digest=data,
+                        curve=ecdsa.SECP256k1,
+                        sigdecode=ecdsa.util.sigdecode_string,
+                    )
                 )
-                if any(key.to_string() == self.public_key.to_string() for key in recovered_keys):
+                if any(
+                    key.to_string() == self.public_key.to_string()
+                    for key in recovered_keys
+                ):
                     # Found the correct recovery id
                     return signature + bytes([v])
             except Exception:
                 pass
-                
+
         # If we get here, we couldn't determine the recovery id
         # Default to 0 (should rarely happen with properly generated keys)
         return signature + bytes([0])
-    

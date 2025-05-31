@@ -10,20 +10,19 @@ from chaincraft.crypto_primitives.encrypt import SymmetricEncryption
 
 
 class TestCryptoPrimitives(unittest.TestCase):
-
     def test_pow(self):
         # Use a small difficulty value for testing
         pow_primitive = ProofOfWorkPrimitive(difficulty=2**12)
         challenge = "HelloWorld"
         nonce, hash_hex = pow_primitive.create_proof(challenge)
-        
+
         # Check proof
         self.assertTrue(pow_primitive.verify_proof(challenge, nonce, hash_hex))
-        
+
         # Verify that the hash modulo difficulty equals 0
         calculated = int(hash_hex, 16)
         self.assertEqual(calculated % pow_primitive.difficulty, 0)
-        
+
         # Test with incorrect nonce
         self.assertFalse(pow_primitive.verify_proof(challenge, nonce + 1, hash_hex))
 
@@ -31,27 +30,27 @@ class TestCryptoPrimitives(unittest.TestCase):
         # Use fewer iterations for testing speed
         vdf_primitive = VDFPrimitive(iterations=1000)
         input_data = "TestVDF"
-        
+
         # Measure time for proof generation
         start_time = time.time()
         proof = vdf_primitive.create_proof(input_data)
         proof_time = time.time() - start_time
-        
+
         # Measure time for verification
         start_time = time.time()
         verification_result = vdf_primitive.verify_proof(input_data, proof)
         verify_time = time.time() - start_time
-        
+
         # Verification should be successful
         self.assertTrue(verification_result)
-        
+
         # Verification should be significantly faster than proof generation
         # Typically at least 10x faster, but we'll use 2x as a conservative test bound
         print(f"VDF proof generation time: {proof_time:.4f}s")
         print(f"VDF verification time: {verify_time:.4f}s")
         print(f"Speedup factor: {proof_time/verify_time:.2f}x")
         self.assertGreater(proof_time / verify_time, 2)
-        
+
         # Test with incorrect proof
         incorrect_proof = proof + 1
         self.assertFalse(vdf_primitive.verify_proof(input_data, incorrect_proof))
@@ -107,7 +106,7 @@ class TestCryptoPrimitives(unittest.TestCase):
 
         # Verify proof
         self.assertTrue(vrf_primitive.verify(message, proof))
-        
+
         # Get VRF output
         vrf_out = vrf_primitive.vrf_output(message, proof)
         self.assertEqual(len(vrf_out), 32)  # 32 bytes = 256-bit hash
@@ -115,8 +114,6 @@ class TestCryptoPrimitives(unittest.TestCase):
         # Negative check
         wrong_message = b"Attack VRF"
         self.assertFalse(vrf_primitive.verify(wrong_message, proof))
-
-
 
 
 class TestSymmetricEncryption(unittest.TestCase):

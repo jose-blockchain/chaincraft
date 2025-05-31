@@ -58,7 +58,7 @@ py-modules = ["chaincraft_cli"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["chaincraft*"]
+include = ["chaincraft*", "examples*"]
 
 [tool.black]
 line-length = 88

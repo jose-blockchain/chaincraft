@@ -17,10 +17,10 @@ from . import crypto_primitives
 
 __all__ = [
     "ChaincraftNode",
-    "SharedObject", 
+    "SharedObject",
     "SharedObjectException",
     "SharedMessage",
     "IndexHelper",
     "crypto_primitives",
     "__version__",
-] 
+]

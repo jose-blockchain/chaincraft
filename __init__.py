@@ -9,11 +9,17 @@ __version__ = "0.3.2"
 __author__ = "Chaincraft Contributors"
 __email__ = "chaincraft@example.com"
 
-from .chaincraft import ChaincraftNode, SharedObject, SharedObjectException, SharedMessage, IndexHelper
+from .chaincraft import (
+    ChaincraftNode,
+    SharedObject,
+    SharedObjectException,
+    SharedMessage,
+    IndexHelper,
+)
 
 __all__ = [
     "ChaincraftNode",
-    "SharedObject", 
+    "SharedObject",
     "SharedObjectException",
     "SharedMessage",
     "IndexHelper",

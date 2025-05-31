@@ -5,8 +5,8 @@ import unittest
 import time
 import hashlib
 from chaincraft import ChaincraftNode
-from shared_object import SharedObject, SharedObjectException
-from shared_message import SharedMessage
+from chaincraft.shared_object import SharedObject, SharedObjectException
+from chaincraft.shared_message import SharedMessage
 
 
 class SimpleChainObject(SharedObject):

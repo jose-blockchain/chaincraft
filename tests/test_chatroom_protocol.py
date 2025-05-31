@@ -4,7 +4,7 @@ import unittest
 import time
 import json
 from chaincraft import ChaincraftNode
-from shared_message import SharedMessage
+from chaincraft.shared_message import SharedMessage
 
 # Import your updated ChatroomObject that appends every message type
 from examples.chatroom_protocol import ChatroomObject
@@ -22,7 +22,6 @@ def get_post_messages(chat_obj, room_name):
 
 
 class TestChatroomProtocol(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         """
@@ -113,7 +112,9 @@ class TestChatroomProtocol(unittest.TestCase):
         for node in self.nodes:
             chat_obj = node.shared_objects[0]
             self.assertIn("fun_room", chat_obj.chatrooms)
-            self.assertEqual(chat_obj.chatrooms["fun_room"]["admin"], self.admin_pub_pem)
+            self.assertEqual(
+                chat_obj.chatrooms["fun_room"]["admin"], self.admin_pub_pem
+            )
 
     def test_join_and_accept(self):
         """
@@ -123,7 +124,7 @@ class TestChatroomProtocol(unittest.TestCase):
         create_msg = {
             "message_type": "CREATE_CHATROOM",
             "chatroom_name": "test_room",
-            "public_key_pem": self.admin_pub_pem
+            "public_key_pem": self.admin_pub_pem,
         }
         self.sign_and_broadcast(self.admin_ecdsa, create_msg)
         self.assertTrue(self.wait_for_db_count(1))
@@ -132,7 +133,7 @@ class TestChatroomProtocol(unittest.TestCase):
         request_join = {
             "message_type": "REQUEST_JOIN",
             "chatroom_name": "test_room",
-            "public_key_pem": self.alice_pub_pem
+            "public_key_pem": self.alice_pub_pem,
         }
         self.sign_and_broadcast(self.alice_ecdsa, request_join)
         self.assertTrue(self.wait_for_db_count(2))
@@ -142,7 +143,7 @@ class TestChatroomProtocol(unittest.TestCase):
             "message_type": "ACCEPT_MEMBER",
             "chatroom_name": "test_room",
             "public_key_pem": self.admin_pub_pem,
-            "requester_key_pem": self.alice_pub_pem
+            "requester_key_pem": self.alice_pub_pem,
         }
         self.sign_and_broadcast(self.admin_ecdsa, accept_alice)
         self.assertTrue(self.wait_for_db_count(3))
@@ -152,7 +153,7 @@ class TestChatroomProtocol(unittest.TestCase):
             "message_type": "POST_MESSAGE",
             "chatroom_name": "test_room",
             "public_key_pem": self.alice_pub_pem,
-            "text": "Alice says hi!"
+            "text": "Alice says hi!",
         }
         self.sign_and_broadcast(self.alice_ecdsa, post_msg)
         self.assertTrue(self.wait_for_db_count(4))
@@ -172,14 +173,14 @@ class TestChatroomProtocol(unittest.TestCase):
 
     def test_intruder_post_fails(self):
         """
-        If an intruder (not accepted by admin) tries to POST_MESSAGE, 
+        If an intruder (not accepted by admin) tries to POST_MESSAGE,
         it should fail validation and never propagate.
         """
         # 1) Create chatroom as admin
         create_msg = {
             "message_type": "CREATE_CHATROOM",
             "chatroom_name": "secure_room",
-            "public_key_pem": self.admin_pub_pem
+            "public_key_pem": self.admin_pub_pem,
         }
         self.sign_and_broadcast(self.admin_ecdsa, create_msg)
         self.assertTrue(self.wait_for_db_count(1))
@@ -189,7 +190,7 @@ class TestChatroomProtocol(unittest.TestCase):
             "message_type": "POST_MESSAGE",
             "chatroom_name": "secure_room",
             "public_key_pem": self.intruder_pub_pem,
-            "text": "Hacked??"
+            "text": "Hacked??",
         }
         # Should raise an exception because the intruder is not a member
         with self.assertRaises(Exception):
@@ -201,7 +202,9 @@ class TestChatroomProtocol(unittest.TestCase):
             self.assertEqual(len(node.db), 1)
             chat_obj = node.shared_objects[0]
             post_msgs = get_post_messages(chat_obj, "secure_room")
-            self.assertEqual(len(post_msgs), 0, "No post messages should exist from intruder")
+            self.assertEqual(
+                len(post_msgs), 0, "No post messages should exist from intruder"
+            )
 
     def test_old_timestamp(self):
         """
@@ -212,7 +215,7 @@ class TestChatroomProtocol(unittest.TestCase):
             "message_type": "CREATE_CHATROOM",
             "chatroom_name": "old_room",
             "public_key_pem": self.admin_pub_pem,
-            "timestamp": time.time() - 300  # 5 minutes stale
+            "timestamp": time.time() - 300,  # 5 minutes stale
         }
         with self.assertRaises(Exception):
             self.sign_and_broadcast(self.admin_ecdsa, old_create)
@@ -228,7 +231,7 @@ class TestChatroomProtocol(unittest.TestCase):
         create_msg = {
             "message_type": "CREATE_CHATROOM",
             "chatroom_name": "tamper_room",
-            "public_key_pem": self.admin_pub_pem
+            "public_key_pem": self.admin_pub_pem,
         }
         # sign it properly first
         self.sign_and_broadcast(self.admin_ecdsa, create_msg)
@@ -240,10 +243,13 @@ class TestChatroomProtocol(unittest.TestCase):
             "chatroom_name": "tamper_room",
             "public_key_pem": self.admin_pub_pem,
             "timestamp": time.time(),
-            "text": "Should fail!"
+            "text": "Should fail!",
         }
         # We'll sign it correctly, then manually break the signature
-        payload_str = json.dumps({k: tampered_msg[k] for k in tampered_msg if k != "signature"}, sort_keys=True)
+        payload_str = json.dumps(
+            {k: tampered_msg[k] for k in tampered_msg if k != "signature"},
+            sort_keys=True,
+        )
         sig_bytes = self.admin_ecdsa.sign(payload_str.encode("utf-8"))
         tampered_msg["signature"] = sig_bytes.hex() + "00"
 
@@ -277,13 +283,13 @@ class TestChatroomProtocol(unittest.TestCase):
                 "message_type": "POST_MESSAGE",
                 "chatroom_name": room_name,
                 "public_key_pem": self.alice_pub_pem,
-                "text": f"Alice concurrent {i}"
+                "text": f"Alice concurrent {i}",
             }
             bob_msg = {
                 "message_type": "POST_MESSAGE",
                 "chatroom_name": room_name,
                 "public_key_pem": self.bob_pub_pem,
-                "text": f"Bob concurrent {i}"
+                "text": f"Bob concurrent {i}",
             }
             # Send messages with increased delay between them
             self.sign_and_broadcast(self.alice_ecdsa, alice_msg)
@@ -300,22 +306,30 @@ class TestChatroomProtocol(unittest.TestCase):
 
         # Check final chat - give more time for messages to propagate
         time.sleep(1)
-        
+
         for node in self.nodes:
             chat_obj = node.shared_objects[0]
             post_msgs = get_post_messages(chat_obj, room_name)
-            
+
             # Check that we have all 6 expected messages (3 from Alice, 3 from Bob)
-            alice_msgs = [m for m in post_msgs if m["public_key_pem"] == self.alice_pub_pem]
+            alice_msgs = [
+                m for m in post_msgs if m["public_key_pem"] == self.alice_pub_pem
+            ]
             bob_msgs = [m for m in post_msgs if m["public_key_pem"] == self.bob_pub_pem]
-            
-            self.assertEqual(len(alice_msgs), 3, f"Expected 3 messages from Alice, got {len(alice_msgs)}")
-            self.assertEqual(len(bob_msgs), 3, f"Expected 3 messages from Bob, got {len(bob_msgs)}")
-            
+
+            self.assertEqual(
+                len(alice_msgs),
+                3,
+                f"Expected 3 messages from Alice, got {len(alice_msgs)}",
+            )
+            self.assertEqual(
+                len(bob_msgs), 3, f"Expected 3 messages from Bob, got {len(bob_msgs)}"
+            )
+
             # Verify message content without relying on specific order
             alice_texts = [m["text"] for m in alice_msgs]
             bob_texts = [m["text"] for m in bob_msgs]
-            
+
             for i in range(3):
                 self.assertIn(f"Alice concurrent {i}", alice_texts)
                 self.assertIn(f"Bob concurrent {i}", bob_texts)
@@ -341,12 +355,12 @@ class TestChatroomProtocol(unittest.TestCase):
         req_alice = {
             "message_type": "REQUEST_JOIN",
             "chatroom_name": room_name,
-            "public_key_pem": self.alice_pub_pem
+            "public_key_pem": self.alice_pub_pem,
         }
         req_bob = {
             "message_type": "REQUEST_JOIN",
             "chatroom_name": room_name,
-            "public_key_pem": self.bob_pub_pem
+            "public_key_pem": self.bob_pub_pem,
         }
         self.sign_and_broadcast(self.alice_ecdsa, req_alice)
         time.sleep(0.2)
@@ -358,13 +372,13 @@ class TestChatroomProtocol(unittest.TestCase):
             "message_type": "ACCEPT_MEMBER",
             "chatroom_name": room_name,
             "public_key_pem": self.admin_pub_pem,
-            "requester_key_pem": self.alice_pub_pem
+            "requester_key_pem": self.alice_pub_pem,
         }
         accept_bob = {
             "message_type": "ACCEPT_MEMBER",
             "chatroom_name": room_name,
             "public_key_pem": self.admin_pub_pem,
-            "requester_key_pem": self.bob_pub_pem
+            "requester_key_pem": self.bob_pub_pem,
         }
         self.sign_and_broadcast(self.admin_ecdsa, accept_alice)
         time.sleep(0.2)
@@ -377,13 +391,13 @@ class TestChatroomProtocol(unittest.TestCase):
                 "message_type": "POST_MESSAGE",
                 "chatroom_name": room_name,
                 "public_key_pem": self.alice_pub_pem,
-                "text": f"Alice says {i}"
+                "text": f"Alice says {i}",
             }
             bob_msg = {
                 "message_type": "POST_MESSAGE",
                 "chatroom_name": room_name,
                 "public_key_pem": self.bob_pub_pem,
-                "text": f"Bob says {i}"
+                "text": f"Bob says {i}",
             }
             self.sign_and_broadcast(self.alice_ecdsa, alice_msg)
             self.sign_and_broadcast(self.bob_ecdsa, bob_msg)
@@ -446,7 +460,7 @@ class TestChatroomProtocol(unittest.TestCase):
             "chatroom_name": room_name,
             "public_key_pem": self.alice_pub_pem,
             "text": "Old by 10s",
-            "timestamp": time.time() - 10
+            "timestamp": time.time() - 10,
         }
         self.sign_and_broadcast(self.alice_ecdsa, msg_old)
         time.sleep(0.2)
@@ -456,7 +470,7 @@ class TestChatroomProtocol(unittest.TestCase):
             "message_type": "POST_MESSAGE",
             "chatroom_name": room_name,
             "public_key_pem": self.alice_pub_pem,
-            "text": "Now"
+            "text": "Now",
         }
         self.sign_and_broadcast(self.alice_ecdsa, msg_now)
         time.sleep(0.2)
@@ -467,7 +481,7 @@ class TestChatroomProtocol(unittest.TestCase):
             "chatroom_name": room_name,
             "public_key_pem": self.alice_pub_pem,
             "text": "Future by 10s",
-            "timestamp": time.time() + 10
+            "timestamp": time.time() + 10,
         }
         self.sign_and_broadcast(self.alice_ecdsa, msg_future)
 
@@ -496,7 +510,7 @@ class TestChatroomProtocol(unittest.TestCase):
             "chatroom_name": room_name,
             "public_key_pem": self.bob_pub_pem,
             "timestamp": time.time() - 20,
-            "text": "This should fail"
+            "text": "This should fail",
         }
         with self.assertRaises(Exception):
             self.sign_and_broadcast(self.bob_ecdsa, msg_too_old)
@@ -507,7 +521,7 @@ class TestChatroomProtocol(unittest.TestCase):
             "chatroom_name": room_name,
             "public_key_pem": self.bob_pub_pem,
             "timestamp": time.time() + 30,
-            "text": "This also should fail"
+            "text": "This also should fail",
         }
         with self.assertRaises(Exception):
             self.sign_and_broadcast(self.bob_ecdsa, msg_too_future)
@@ -518,7 +532,9 @@ class TestChatroomProtocol(unittest.TestCase):
             # but we only check POST messages to be sure none is accepted.
             chat_obj = node.shared_objects[0]
             post_msgs = get_post_messages(chat_obj, room_name)
-            self.assertEqual(len(post_msgs), 0, "Bob's invalid timestamps should be rejected")
+            self.assertEqual(
+                len(post_msgs), 0, "Bob's invalid timestamps should be rejected"
+            )
 
     # --------------------------------------------------------------------------
     # Helper Methods
@@ -527,7 +543,7 @@ class TestChatroomProtocol(unittest.TestCase):
         create_msg = {
             "message_type": "CREATE_CHATROOM",
             "chatroom_name": room_name,
-            "public_key_pem": self.admin_pub_pem
+            "public_key_pem": self.admin_pub_pem,
         }
         self.sign_and_broadcast(self.admin_ecdsa, create_msg)
         time.sleep(0.2)
@@ -535,7 +551,7 @@ class TestChatroomProtocol(unittest.TestCase):
         req_alice = {
             "message_type": "REQUEST_JOIN",
             "chatroom_name": room_name,
-            "public_key_pem": self.alice_pub_pem
+            "public_key_pem": self.alice_pub_pem,
         }
         self.sign_and_broadcast(self.alice_ecdsa, req_alice)
         time.sleep(0.2)
@@ -544,7 +560,7 @@ class TestChatroomProtocol(unittest.TestCase):
             "message_type": "ACCEPT_MEMBER",
             "chatroom_name": room_name,
             "public_key_pem": self.admin_pub_pem,
-            "requester_key_pem": self.alice_pub_pem
+            "requester_key_pem": self.alice_pub_pem,
         }
         self.sign_and_broadcast(self.admin_ecdsa, accept_alice)
         time.sleep(0.2)
@@ -553,7 +569,7 @@ class TestChatroomProtocol(unittest.TestCase):
         create_msg = {
             "message_type": "CREATE_CHATROOM",
             "chatroom_name": room_name,
-            "public_key_pem": self.admin_pub_pem
+            "public_key_pem": self.admin_pub_pem,
         }
         self.sign_and_broadcast(self.admin_ecdsa, create_msg)
         time.sleep(0.2)
@@ -561,7 +577,7 @@ class TestChatroomProtocol(unittest.TestCase):
         req_bob = {
             "message_type": "REQUEST_JOIN",
             "chatroom_name": room_name,
-            "public_key_pem": self.bob_pub_pem
+            "public_key_pem": self.bob_pub_pem,
         }
         self.sign_and_broadcast(self.bob_ecdsa, req_bob)
         time.sleep(0.2)
@@ -570,7 +586,7 @@ class TestChatroomProtocol(unittest.TestCase):
             "message_type": "ACCEPT_MEMBER",
             "chatroom_name": room_name,
             "public_key_pem": self.admin_pub_pem,
-            "requester_key_pem": self.bob_pub_pem
+            "requester_key_pem": self.bob_pub_pem,
         }
         self.sign_and_broadcast(self.admin_ecdsa, accept_bob)
         time.sleep(0.2)
@@ -579,7 +595,7 @@ class TestChatroomProtocol(unittest.TestCase):
         req = {
             "message_type": "REQUEST_JOIN",
             "chatroom_name": room_name,
-            "public_key_pem": user_pub_pem
+            "public_key_pem": user_pub_pem,
         }
         self.sign_and_broadcast(user_ecdsa, req)
         time.sleep(0.1)
@@ -588,7 +604,7 @@ class TestChatroomProtocol(unittest.TestCase):
             "message_type": "ACCEPT_MEMBER",
             "chatroom_name": room_name,
             "public_key_pem": self.admin_pub_pem,
-            "requester_key_pem": user_pub_pem
+            "requester_key_pem": user_pub_pem,
         }
         self.sign_and_broadcast(self.admin_ecdsa, accept)
         time.sleep(0.1)

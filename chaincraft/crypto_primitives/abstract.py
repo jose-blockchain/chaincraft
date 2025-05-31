@@ -2,10 +2,12 @@
 
 from abc import ABC, abstractmethod
 
+
 class CryptoPrimitive(ABC):
     """
     Base class for all cryptographic primitives in Chaincraft.
     """
+
     pass
 
 
@@ -51,7 +53,9 @@ class KeyCryptoPrimitive(CryptoPrimitive):
         pass
 
     @abstractmethod
-    def verify(self, data: bytes, signature: bytes, pub_key=None, *args, **kwargs) -> bool:
+    def verify(
+        self, data: bytes, signature: bytes, pub_key=None, *args, **kwargs
+    ) -> bool:
         """
         Verify a signature (with or without explicitly passed public key).
         """

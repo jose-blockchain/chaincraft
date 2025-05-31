@@ -5,10 +5,11 @@ import unittest
 import random
 import time, json, hashlib
 from chaincraft import ChaincraftNode
-from shared_object import SharedObject
-from shared_message import SharedMessage
+from chaincraft.shared_object import SharedObject
+from chaincraft.shared_message import SharedMessage
 
 random.seed(7331)
+
 
 class SimpleSharedNumber(SharedObject):
     def __init__(self):
@@ -63,12 +64,14 @@ class SimpleSharedNumber(SharedObject):
     def get_messages_since_digest(self, digest: str) -> List[SharedMessage]:
         return []
 
+
 def create_network(num_nodes, reset_db=False):
     nodes = [ChaincraftNode(reset_db=reset_db, debug=False) for _ in range(num_nodes)]
     for node in nodes:
         node.add_shared_object(SimpleSharedNumber())
         node.start()
     return nodes
+
 
 def connect_nodes(nodes):
     # Connect each node to its immediate neighbors in a ring
@@ -78,11 +81,12 @@ def connect_nodes(nodes):
         next_node = (i + 1) % num_nodes
         nodes[i].connect_to_peer(nodes[next_node].host, nodes[next_node].port)
         nodes[next_node].connect_to_peer(nodes[i].host, nodes[i].port)
-        
+
         # Optional: Connect to previous node as well if you want bidirectional connections
         # prev_node = (i - 1) % num_nodes
         # nodes[i].connect_to_peer(nodes[prev_node].host, nodes[prev_node].port)
         # nodes[prev_node].connect_to_peer(nodes[i].host, nodes[i].port)
+
 
 def wait_for_propagation(nodes, shared_object_index, expected_number, timeout=30):
     start_time = time.time()
@@ -93,6 +97,7 @@ def wait_for_propagation(nodes, shared_object_index, expected_number, timeout=30
             return True
         time.sleep(1.0)
     return False
+
 
 class TestChaincraftNetwork(unittest.TestCase):
     def setUp(self):
@@ -116,10 +121,15 @@ class TestChaincraftNetwork(unittest.TestCase):
             self.nodes[i].create_shared_message(i + 1)
             time.sleep(1)  # Wait a bit between message creations
             for node in self.nodes:
-                print(f"Node {node.port}: Shared number: {node.shared_objects[0].number}")
+                print(
+                    f"Node {node.port}: Shared number: {node.shared_objects[0].number}"
+                )
 
         expected_number = sum(range(1, self.num_nodes + 1))
-        self.assertTrue(wait_for_propagation(self.nodes, 0, expected_number, timeout=20))
+        self.assertTrue(
+            wait_for_propagation(self.nodes, 0, expected_number, timeout=20)
+        )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

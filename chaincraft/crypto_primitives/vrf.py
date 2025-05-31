@@ -1,12 +1,16 @@
 # crypto_primitives/vrf.py
 
 import hashlib
+
 try:
     import ecdsa
 except ImportError:
-    raise ImportError("Please install 'ecdsa' library (pip install ecdsa) to use VRF functionality.")
+    raise ImportError(
+        "Please install 'ecdsa' library (pip install ecdsa) to use VRF functionality."
+    )
 
 from .abstract import KeyCryptoPrimitive
+
 
 class ECDSAVRFPrimitive(KeyCryptoPrimitive):
     """
