@@ -7,7 +7,7 @@
 [![ECDSA](https://img.shields.io/badge/ECDSA-supported-green)](https://github.com/jio-gl/chaincraft)
 [![Project Status](https://img.shields.io/badge/status-in%20development-yellow)](https://github.com/jio-gl/chaincraft)
 [![PyPI version](https://badge.fury.io/py/chaincraft.svg)](https://pypi.org/project/chaincraft/)
-[![PyPI Downloads](https://static.pepy.tech/badge/chaincraft)](https://pepy.tech/projects/chaincraft)
+[![PyPI Downloads](https://static.pepy.tech/badge/cerebras-agent)](https://pepy.tech/projects/chaincraft)
 
 **A platform for blockchain education and prototyping**
 
