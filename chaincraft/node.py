@@ -41,6 +41,7 @@ class ChaincraftNode:
         self.use_fixed_address: bool = use_fixed_address
         self.indexed: bool = indexed
         self.use_compression: bool = use_compression
+        self.max_msg_size = 14000
 
         if port is not None:
             self.host: str = "127.0.0.1"
@@ -215,7 +216,7 @@ class ChaincraftNode:
             try:
                 compressed_data: bytes
                 addr: Tuple[str, int]
-                compressed_data, addr = self.socket.recvfrom(1500)
+                compressed_data, addr = self.socket.recvfrom(self.max_msg_size)
                 message_hash: str = self.hash_message(compressed_data)
                 # Only handle if we've never seen this message
                 if message_hash not in self.db:
