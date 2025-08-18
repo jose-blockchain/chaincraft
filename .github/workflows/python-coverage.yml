@@ -1,45 +1,38 @@
 name: Python Coverage
-
 on:
-  # Run coverage on scheduled basis (weekly) and on manual trigger
   schedule:
     - cron: '0 0 * * 0'  # Weekly on Sunday at midnight
   workflow_dispatch:  # Allow manual trigger
-
 permissions:
   contents: read
-
 jobs:
   coverage:
     runs-on: ubuntu-22.04
-
     steps:
     - uses: actions/checkout@v4
+    
     - name: Set up Python 3.10
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         python-version: "3.10"
+        cache: 'pip'  # Cache pip dependencies
+    
     - name: Install dependencies
       run: |
-        echo "Starting dependency installation"
         python -m pip install --upgrade pip
         pip install flake8 pytest pytest-cov
         if [ -f requirements.txt ]; then
           pip install -r requirements.txt
         fi
         pip install -e .
-      shell: /usr/bin/bash -e {0}
-      env:
-        pythonLocation: /opt/hostedtoolcache/Python/3.10.17/x64
-        LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.10.17/x64/lib
+    
     - name: Run tests with coverage
       run: |
-        echo "Running tests with coverage..."
         python -m pytest --cov=./ --cov-report=xml --cov-report=term
-      shell: /usr/bin/bash -e {0}
+    
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
         file: ./coverage.xml
         flags: unittests
-        fail_ci_if_error: false 
+        fail_ci_if_error: false
