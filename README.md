@@ -9,263 +9,197 @@
 [![PyPI version](https://badge.fury.io/py/chaincraft.svg)](https://pypi.org/project/chaincraft/)
 [![PyPI Downloads](https://static.pepy.tech/badge/cerebras-agent)](https://pepy.tech/projects/chaincraft)
 
-**A platform for blockchain education and prototyping**
+# Chaincraft
 
-Chaincraft is a Python-based framework for building and experimenting with blockchain protocols. It provides the fundamental components needed to create distributed networks, implement consensus mechanisms, and prototype blockchain applications.
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://github.com/jio-gl/chaincraft/actions/workflows/python-app.yml/badge.svg)](https://github.com/jio-gl/chaincraft/actions/workflows/python-app.yml)
+[![PyPI version](https://badge.fury.io/py/chaincraft.svg)](https://pypi.org/project/chaincraft/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Key Features
+**A Python framework for blockchain education and rapid prototyping**
 
-- **Decentralized Network**: Built-in peer discovery, connection management, and message propagation  
-- **Shared Objects**: Extensible framework for maintaining distributed state across nodes  
-- **Cryptographic Primitives**: Implementation of essential blockchain cryptography  
-- **Persistence**: Optional persistent storage for nodes and messages  
-- **Data Validation**: Type checking and schema validation for messages  
-- **Merklelized Storage**: Support for efficient state synchronization  
+Chaincraft provides the fundamental building blocks for creating blockchain networks, implementing consensus mechanisms, and experimenting with distributed systems. Built for education and research, it offers a clean, extensible architecture for exploring blockchain concepts.
 
-## Installation
+## Features
 
-### Install from PyPI
+**Core Infrastructure**
+- Decentralized peer-to-peer networking with automatic discovery
+- Message gossip protocol with validation and type checking
+- Persistent and in-memory storage options
+- Cryptographic primitives (ECDSA, Proof of Work, VDF, VRF)
 
-The easiest way to install Chaincraft is via pip:
+**Distributed State Management**
+- Shared Objects framework for consensus implementation
+- Merklelized storage for efficient state synchronization
+- Built-in support for various consensus mechanisms
+- Message indexing and validation
+
+**Developer Experience**
+- Simple Python API and command-line interface
+- Comprehensive examples and documentation
+- Modular design for easy customization
+- Educational focus with clear architectural patterns
+
+## Quick Start
+
+### Installation
 
 ```bash
 pip install chaincraft
 ```
 
-### Install from Source
-
-For development or to get the latest features:
+### Start a Node
 
 ```bash
-git clone https://github.com/jio-gl/chaincraft.git
-cd chaincraft
-pip install -e .
+# Command line
+chaincraft-cli -p 8000
+
+# Python
+import chaincraft
+node = chaincraft.ChaincraftNode()
+node.start()
 ```
 
-### Development Installation
+### Connect Nodes
 
-To install with development dependencies:
+```python
+# Connect to another node
+node.connect_to_peer("127.0.0.1", 21000)
 
+# Broadcast a message
+node.create_shared_message("Hello, Chaincraft!")
+```
+
+## Core Concepts
+
+### Nodes and Networking
+`ChaincraftNode` handles peer discovery, connection management, and message propagation across the network.
+
+### Shared Objects
+Abstract base class for implementing distributed data structures with consensus. Perfect for building blockchains, state machines, or any distributed application.
+
+### Cryptographic Primitives
+Built-in implementations of essential blockchain cryptography including digital signatures, proof of work, and verifiable random functions.
+
+## Examples
+
+**Simple Blockchain**
+```python
+from chaincraft.examples.blockchain import SimpleBlockchain
+from chaincraft import ChaincraftNode
+
+# Create a blockchain node
+blockchain = SimpleBlockchain()
+node = ChaincraftNode(shared_objects=[blockchain])
+node.start()
+
+# Mine a block
+blockchain.mine_block("transaction_data")
+```
+
+**Custom Consensus Mechanism**
+```python
+from chaincraft.shared_object import SharedObject
+
+class MyConsensus(SharedObject):
+    def __init__(self):
+        self.state = {}
+    
+    def is_valid(self, message):
+        # Implement validation logic
+        return True
+    
+    def add_message(self, message):
+        # Update state based on consensus rules
+        self.state.update(message.data)
+```
+
+## Documentation
+
+### API Reference
+- [Core Components](docs/api/core.md)
+- [Cryptographic Primitives](docs/api/crypto.md)
+- [Shared Objects](docs/api/shared_objects.md)
+
+### Tutorials
+- [Building Your First Blockchain](docs/tutorials/first_blockchain.md)
+- [Implementing Custom Consensus](docs/tutorials/consensus.md)
+- [Peer-to-Peer Networking](docs/tutorials/networking.md)
+
+### Examples
+- [Simple Blockchain](examples/blockchain/) - Basic PoW blockchain
+- [Message Chain](examples/message_chain/) - Merklelized append-only log
+- [ECDSA Transactions](examples/transactions/) - Signed transaction system
+- [Chatroom](examples/chatroom/) - Real-time messaging application
+
+## Development
+
+### From Source
 ```bash
 git clone https://github.com/jio-gl/chaincraft.git
 cd chaincraft
 pip install -e ".[dev]"
 ```
 
-### Requirements
-
-- Python 3.8 or higher
-- `cryptography>=44.0.1`
-
-## Import Guide
-
-After installing chaincraft, you can import its components using the package namespace:
-
-```python
-# Main node component
-from chaincraft import ChaincraftNode
-
-# Core components
-from chaincraft.shared_object import SharedObject
-from chaincraft.shared_message import SharedMessage
-
-# Exceptions
-from chaincraft.shared_object import SharedObjectException
-
-# Cryptographic primitives
-from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
-from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
-```
-
-## Quick Start
-
-### Command Line Interface
-
-After installation, you can use the `chaincraft-cli` command:
-
+### Running Tests
 ```bash
-# Start a node with default settings
-chaincraft-cli
+# All tests
+python -m unittest discover -v
 
-# Start a node on a specific port
-chaincraft-cli -p 8000
-
-# Start a node and connect to a seed peer
-chaincraft-cli -s 127.0.0.1:21000
-
-# Enable debugging and use memory storage
-chaincraft-cli -d -m
+# Specific test
+python -m unittest tests.test_blockchain_example
 ```
 
-### Python API
-
-```python
-import chaincraft
-
-# Create and start a node
-node = chaincraft.ChaincraftNode()
-node.start()
-
-# Connect to another node
-node.connect_to_peer("127.0.0.1", 21000)
-
-# Create and broadcast a message
-node.create_shared_message("Hello, Chaincraft!")
-```
+### Contributing
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Architecture
 
-Chaincraft is built on several core components:
+Chaincraft explores fundamental blockchain design decisions:
 
-- `ChaincraftNode`: Handles networking, peer discovery, and message gossip  
-- `SharedMessage`: Wraps and serializes data for network transmission  
-- `SharedObject`: Abstract base class for implementing distributed data structures  
-- **Cryptographic primitives**: PoW, VDF, secure ECDSA, and VRF implementations  
+**The Blockchain Trilemma**
+- Security vs Scalability vs Decentralization
 
-## Usage
+**Time Models**
+- Asynchronous vs Time-Bounded vs Synchronized
 
-### Basic Node Setup
+**Identity Systems**
+- Anonymous vs Resource-Based vs Identity-Based
 
-```python
-from chaincraft import ChaincraftNode
+**Consensus Mechanisms**
+- Proof of Work, Proof of Stake, Byzantine Fault Tolerance
 
-# Create a node with default settings
-node = ChaincraftNode()
-node.start()
+## Roadmap
 
-# Connect to another node
-node.connect_to_peer("127.0.0.1", 21000)
+### Version 1.0 (Current)
+- ✅ Gossip protocol and peer discovery
+- ✅ Message validation and persistent storage
+- ✅ Shared Objects and merklelized sync
+- ✅ Cryptographic primitives
+- ✅ Proof of Work and PBFT consensus
+- 🔄 Transaction validation (balance-based and UTXO)
+- ⏳ Additional consensus mechanisms (PoS, PoA, PoET)
+- ⏳ Smart contracts and state machine replication
 
-# Create and broadcast a message
-node.create_shared_message("Hello, Chaincraft!")
-```
+### Version 2.0 (Planned)
+- Configurable consensus protocols
+- Multiple ledger types (UTXO, account-based)
+- Gas auction mechanisms
+- Sharding support
 
-### Creating a Custom Shared Object
+## Requirements
 
-```python
-from chaincraft.shared_object import SharedObject
-from chaincraft.shared_message import SharedMessage
-import hashlib
-import json
+- Python 3.8+
+- `cryptography>=44.0.1`
 
-class MySharedState(SharedObject):
-    def __init__(self):
-        self.state = {}
-        self.chain = []  # For merklelized sync
-    
-    def is_valid(self, message: SharedMessage) -> bool:
-        # Validate incoming messages
-        return isinstance(message.data, dict) and "key" in message.data
-        
-    def add_message(self, message: SharedMessage) -> None:
-        # Update state based on message
-        self.state[message.data["key"]] = message.data["value"]
-        self.chain.append(message.data)
-        
-    def is_merkelized(self) -> bool:
-        return True
-        
-    def get_latest_digest(self) -> str:
-        # Return latest state digest for sync
-        return hashlib.sha256(json.dumps(self.chain).encode()).hexdigest()
-    
-    # Additional required methods...
-```
+## License
 
-### Using Cryptographic Primitives
+MIT License - see [LICENSE](LICENSE) for details.
 
-```python
-from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
+## Support
 
-# Create a Proof of Work challenge
-pow_primitive = ProofOfWorkPrimitive(difficulty_bits=16)
-challenge = "block_data_here"
-nonce, hash_hex = pow_primitive.create_proof(challenge)
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/jio-gl/chaincraft/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/jio-gl/chaincraft/discussions)
 
-# Verify the proof
-is_valid = pow_primitive.verify_proof(challenge, nonce, hash_hex)
-```
-
-## Blockchain Prototyping
-
-Chaincraft provides the building blocks for implementing various blockchain designs:
-
-- **Proof of Work Blockchains**: Using the PoW primitive  
-- **State-Based Applications**: Using `SharedObject`s for consensus  
-- **Transaction Validation**: Using the message validation framework  
-- **Custom Consensus Mechanisms**: By extending `SharedObject`s with validation rules  
-
-## Examples
-
-The project includes various **examples**:
-
-- **Simple Blockchain**: A basic blockchain with PoW consensus  
-- **Message Chain**: A merklelized append-only log of messages  
-- **ECDSA Transactions**: Signed transactions with balance tracking  
-- **Chatroom**: A real-time chat example with auto-accept membership  
-  - See [`examples/chatroom.md`](examples/chatroom.md) for details!
-
-## Running Tests
-
-Run **all tests**:
-
-```bash
-python -m unittest discover -v -s tests
-```
-
-Run a **specific test file**:
-
-```bash
-python -m unittest tests/test_blockchain_example.py
-```
-
-Run a **specific test**:
-
-```bash
-python -m unittest -v -k test_local_discovery_enabled tests/test_local_discovery.py
-```
-
-## Design Principles
-
-Chaincraft is designed to help explore blockchain tradeoffs:
-
-- **Blockchain Trilemma**:  
-  - Security vs. Scalability vs. Decentralization
-- **Time Synchronization**:  
-  - Asynchronous vs. Time-Bounded vs. Synchronized
-- **Identity Models**:  
-  - Anonymous vs. Resource-Based vs. Identity-Based
-
-## Contributing
-
-Contributions to Chaincraft are welcome! This is an educational project aimed at helping developers understand blockchain concepts through hands-on implementation.
-
-## Current Status (Roadmap)
-
-### Roadmap to version 1.0.0
-
-- ✅ Gossip Protocol: Sharing JSON messages between nodes  
-- ✅ Persistent Storage: Key-value storage for messages  
-- ✅ Peer Discovery: Global and local node discovery  
-- ✅ Message Validation: Field and type validation with peer banning  
-- ✅ Shared Objects: State synchronization between nodes  
-- ✅ Merklelized Storage: Efficient state synchronization  
-- ✅ Additional Cryptographic Primitives  
-- ✅ Indexing (Validated Message Type can have some indexed fields)  
-- ✅ Consensus Mechanisms  
-- ✅ Proof of Work
-- ✅ Practical Byzantine Fault Tolerance (PBFT) or Tenderming (simpler)
-- ⬜ Transaction Validation for Ledgers (Balance-based and UTXO-based) 
-- ⬜ Proof of Stake  
-- ⬜ Proof of Authority  
-- ⬜ Proof of Elapsed Time  
-- ⬜ Smart Contracts  
-- ⬜ State Machine Replication  
-- ⬜ Sharding  
-
-### Ideas for version 2.0.0
-
-- Configurable Building Blocks:
-    * choose consensys protocol (PoS, PoW, PoA, etc)
-    * choose ledger type (UTXO, Account Balances, etc)
-    * choose gas auction (Lower Price First, Median Price, etc)
+---
