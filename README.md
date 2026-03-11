@@ -57,6 +57,10 @@ pip install -e ".[dev]"
 - Python 3.8 or higher
 - `cryptography>=44.0.1`
 
+### Code quality (pre-commit hooks)
+
+After cloning, run `./scripts/setup-hooks.sh` to enable black and flake8 checks on commit.
+
 ## Import Guide
 
 After installing chaincraft, you can import its components using the package namespace:
