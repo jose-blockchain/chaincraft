@@ -9,7 +9,7 @@
 [![PyPI version](https://badge.fury.io/py/chaincraft.svg)](https://pypi.org/project/chaincraft/)
 [![PyPI Downloads](https://static.pepy.tech/badge/cerebras-agent)](https://pepy.tech/projects/chaincraft)
 
-**A platform for blockchain education and prototyping**
+**A platform for blockchain research and prototyping**
 
 Chaincraft is a Python-based framework for building and experimenting with blockchain protocols. It provides the fundamental components needed to create distributed networks, implement consensus mechanisms, and prototype blockchain applications.
 
