@@ -2,6 +2,9 @@ name: Publish Python Package to PyPI
 on:
   release:
     types: [published]
+  push:
+    tags:
+      - "v*"
 permissions:
   contents: read
 jobs:
@@ -58,7 +61,7 @@ jobs:
       run: twine check dist/*
     
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.3.3
       with:
         name: dist
         path: dist/
@@ -70,7 +73,7 @@ jobs:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
     - name: Download build artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v4.3.0
       with:
         name: dist
         path: dist/
