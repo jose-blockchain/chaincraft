@@ -19,7 +19,6 @@ except ImportError:
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
     from chaincraft.crypto_primitives.vrf import ECDSAVRFPrimitive
     from chaincraft.crypto_primitives.encrypt import SymmetricEncryption
-import hashlib
 
 
 class TestCryptoPrimitives(unittest.TestCase):

@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List
 import json
 import hashlib
 import time
@@ -172,9 +172,9 @@ class RandomnessBeacon(SharedObject):
 
         # Only replace if both blocks have the same previous block hash
         if current_last["prevBlockHash"] != new_block["prevBlockHash"]:
-            print(
-                f"Previous hash mismatch: current={current_last['prevBlockHash'][:8]}..., new={new_block['prevBlockHash'][:8]}... - not replacing"
-            )
+            cur = current_last["prevBlockHash"][:8]
+            new = new_block["prevBlockHash"][:8]
+            print(f"Previous hash mismatch: current={cur}..., new={new}... - not replacing")
             return
 
         # Compare lexicographical ordering of block hashes
@@ -398,7 +398,7 @@ class BeaconMiner:
         while self.running:
             # Wait for a block change event
             if self.beacon.wait_for_block_change(timeout=0.5):
-                print(f"Miner detected block change, flagging for restart")
+                print("Miner detected block change, flagging for restart")
                 self.restart_mining = True
 
     def _mine_loop(self):
@@ -437,14 +437,12 @@ class BeaconMiner:
                 # Broadcast the block
                 try:
                     self.node.create_shared_message(block)
-                    print(
-                        f"Miner {short_address} found block at height {block['blockHeight']} with hash {block['blockHash'][:8]}..."
-                    )
+                    h = block["blockHeight"]
+                    hsh = block["blockHash"][:8]
+                    print(f"Miner {short_address} found block at height {h} with hash {hsh}...")
                 except SharedObjectException as e:
                     # The block might have been replaced while we were mining
-                    print(
-                        f"Miner {short_address}: Block rejected - chain may have changed: {str(e)}"
-                    )
+                    print(f"Miner {short_address}: Block rejected (chain may have changed): {e}")
 
             except Exception as e:
                 print(f"Mining error for {short_address}: {str(e)}")

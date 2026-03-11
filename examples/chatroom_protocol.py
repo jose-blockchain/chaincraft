@@ -1,18 +1,17 @@
 import time
 import json
-from typing import List, Dict, Set
+from typing import List, Dict
 import os
 import sys
 
 # Try to import from installed package first, fall back to direct imports
 try:
-    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_object import SharedObject
     from chaincraft.shared_message import SharedMessage
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 except ImportError:
-    # Add parent directory to path as fallback
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_object import SharedObject
     from chaincraft.shared_message import SharedMessage
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 

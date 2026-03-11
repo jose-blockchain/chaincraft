@@ -1,7 +1,7 @@
 import sqlite3
 import json
 import os
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Any, Dict, List, Tuple
 
 
 class IndexHelper:

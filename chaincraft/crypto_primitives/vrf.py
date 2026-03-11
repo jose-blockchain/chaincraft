@@ -4,7 +4,7 @@ import hashlib
 
 try:
     from cryptography.hazmat.primitives.asymmetric import ec
-    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives import hashes
     from cryptography.exceptions import InvalidSignature
 except ImportError:
     raise ImportError(
@@ -39,7 +39,7 @@ class ECDSAVRFPrimitive(KeyCryptoPrimitive):
         """
         if not self.private_key:
             raise ValueError("Private key not generated or set.")
-        
+
         signature = self.private_key.sign(
             data,
             ec.ECDSA(hashes.SHA256())

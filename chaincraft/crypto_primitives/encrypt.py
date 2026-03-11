@@ -30,7 +30,7 @@ class SymmetricEncryption(KeyCryptoPrimitive):
         try:
             decrypted = self.fernet.decrypt(signature)
             return decrypted == data
-        except:
+        except Exception:
             return False
 
     def encrypt(self, plaintext: str) -> str:

@@ -1,8 +1,6 @@
 # crypto_primitives/pow.py
 
 import hashlib
-import time
-import random
 from .abstract import KeylessCryptoPrimitive
 
 

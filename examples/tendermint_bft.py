@@ -1,10 +1,9 @@
-from typing import List, Dict, Any, Optional, Set, Tuple
+from typing import List, Dict, Any
 import json
 import hashlib
 import time
 import os
 import threading
-import random
 import signal
 import sys
 from enum import Enum, auto
@@ -12,32 +11,31 @@ import queue
 
 # Try to import from installed package first, fall back to direct imports
 try:
-    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_object import SharedObject
     from chaincraft.shared_message import SharedMessage
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
     from chaincraft.crypto_primitives.address import (
         generate_new_address,
         is_valid_address,
-        private_key_to_address,
-        recover_public_key,
         public_key_to_address,
+        recover_public_key,
     )
 except ImportError:
     # Add parent directory to path as fallback
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_object import SharedObject
     from chaincraft.shared_message import SharedMessage
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
     from chaincraft.crypto_primitives.address import (
         generate_new_address,
         is_valid_address,
-        private_key_to_address,
-        recover_public_key,
         public_key_to_address,
+        recover_public_key,
     )
 
 # Global list of all nodes in the network
 global_nodes = []
+
 
 # Define Tendermint consensus message types and states
 class ConsensusStep(Enum):
@@ -177,7 +175,7 @@ class TendermintBFT(SharedObject):
             recovered_public_key = recover_public_key(message_hash, signature)
 
             if not recovered_public_key:
-                print(f"Failed to recover public key from signature")
+                print("Failed to recover public key from signature")
                 return False
 
             # Derive address from the recovered public key
@@ -351,9 +349,9 @@ class TendermintBFT(SharedObject):
 
     def _process_proposal(self, proposal: Dict[str, Any]) -> None:
         """Process a proposal"""
-        print(
-            f"Node {self.validator_address[:10]}...: Processing proposal from {proposal.get('proposer', 'unknown')[:10]}... for height {proposal.get('height', 'unknown')}"
-        )
+        proposer = str(proposal.get("proposer", "unknown"))[:10]
+        height = proposal.get("height", "unknown")
+        print(f"Node {self.validator_address[:10]}...: Processing proposal from {proposer}... for height {height}")
 
         # Validate the proposal height and round
         if (
@@ -394,9 +392,8 @@ class TendermintBFT(SharedObject):
             # Send our own prevote
             self._broadcast_prevote()
         else:
-            print(
-                f"Node {self.validator_address[:10]}...: Received proposal while in {self.current_step.name}, not changing state"
-            )
+            step = self.current_step.name
+            print(f"Node {self.validator_address[:10]}...: Received proposal while in {step}, not changing")
 
     def _process_prevote(self, prevote: Dict[str, Any]) -> None:
         """Process a prevote from another validator"""
@@ -410,17 +407,14 @@ class TendermintBFT(SharedObject):
             return
 
         if height > self.current_height:
-            print(
-                f"Node {self.validator_address[:10]}...: Received prevote for future height {height}"
-            )
+            print(f"Node {self.validator_address[:10]}...: Received prevote for future height {height}")
             # Store for future processing
             return
 
         # Add the prevote to our collection
         self.prevotes[height].append(prevote)
-        print(
-            f"Node {self.validator_address[:10]}...: Added prevote from {validator[:10]}... for height {height}"
-        )
+        v = str(validator)[:10] if validator else "unknown"
+        print(f"Node {self.validator_address[:10]}...: Added prevote from {v}... for height {height}")
 
         # Check if we have enough prevotes to move to PRECOMMIT
         self._check_prevotes()
@@ -431,23 +425,18 @@ class TendermintBFT(SharedObject):
         validator = precommit.get("validator")
 
         if height < self.current_height:
-            print(
-                f"Node {self.validator_address[:10]}...: Ignoring outdated precommit for height {height}"
-            )
+            print(f"Node {self.validator_address[:10]}...: Ignoring outdated precommit for height {height}")
             return
 
         if height > self.current_height:
-            print(
-                f"Node {self.validator_address[:10]}...: Received precommit for future height {height}"
-            )
+            print(f"Node {self.validator_address[:10]}...: Received precommit for future height {height}")
             # Store for future processing
             return
 
         # Add the precommit to our collection
         self.precommits[height].append(precommit)
-        print(
-            f"Node {self.validator_address[:10]}...: Added precommit from {validator[:10]}... for height {height}"
-        )
+        v = str(validator)[:10] if validator else "unknown"
+        print(f"Node {self.validator_address[:10]}...: Added precommit from {v}... for height {height}")
 
         # Check if we have enough precommits to create a block
         self._check_precommits()
@@ -472,9 +461,8 @@ class TendermintBFT(SharedObject):
         # Need more than 2/3 of validators to prevote for the same proposal
         threshold = (len(self.validators) * 2) // 3 + 1
 
-        print(
-            f"Node {self.validator_address[:10]}...: Prevote count: {matching_prevotes}/{len(self.validators)}, need {threshold}"
-        )
+        n = len(self.validators)
+        print(f"Node {self.validator_address[:10]}...: Prevote count: {matching_prevotes}/{n}, need {threshold}")
 
         if matching_prevotes >= threshold:
             print(
@@ -504,9 +492,8 @@ class TendermintBFT(SharedObject):
         # Need more than 2/3 of validators to precommit for the same proposal
         threshold = (len(self.validators) * 2) // 3 + 1
 
-        print(
-            f"Node {self.validator_address[:10]}...: Precommit count: {matching_precommits}/{len(self.validators)}, need {threshold}"
-        )
+        n = len(self.validators)
+        print(f"Node {self.validator_address[:10]}...: Precommit count: {matching_precommits}/{n}, need {threshold}")
 
         if matching_precommits >= threshold:
             # Only proceed with block creation if we have a real proposal (not nil)
@@ -699,9 +686,8 @@ class TendermintBFT(SharedObject):
         wait_time = self._calculate_next_block_time()
 
         if wait_time > 0:
-            print(
-                f"Node {self.validator_address[:10]}...: Waiting {wait_time:.2f}s before starting height {self.current_height + 1}"
-            )
+            h = self.current_height + 1
+            print(f"Node {self.validator_address[:10]}...: Waiting {wait_time:.2f}s before height {h}")
             time.sleep(wait_time)
 
         self.current_height += 1
@@ -717,9 +703,8 @@ class TendermintBFT(SharedObject):
         # Check our message queue for any pending proposals for this height
         if self.current_height in self.pending_proposals:
             proposal = self.pending_proposals.pop(self.current_height)
-            print(
-                f"Node {self.validator_address[:10]}...: Processing pending proposal for height {self.current_height}"
-            )
+            h = self.current_height
+            print(f"Node {self.validator_address[:10]}...: Processing pending proposal for height {h}")
             self._process_proposal(proposal)
 
     def start_consensus(self) -> None:
@@ -1280,8 +1265,6 @@ def create_tendermint_network(num_nodes=3, consensus_interval=5):
 
 
 if __name__ == "__main__":
-    import time
-    import signal
     import sys
 
     # Number of validators to create
@@ -1366,8 +1349,6 @@ if __name__ == "__main__":
                         validator.consensus._send_proposal()
 
     # Start the progress checker in a separate thread
-    import threading
-
     progress_thread = threading.Thread(target=check_progress, daemon=True)
     progress_thread.start()
 
@@ -1379,9 +1360,9 @@ if __name__ == "__main__":
 
         blocks_created = sum(1 for v in validators if v.consensus.current_height > 1)
         if blocks_created > 0:
-            print(f"✓ Success! Blocks were created successfully.")
+            print("✓ Success! Blocks were created successfully.")
         else:
-            print(f"⚠️ Timeout: No blocks created within the time limit")
+            print("⚠️ Timeout: No blocks created within the time limit")
 
     except KeyboardInterrupt:
         pass

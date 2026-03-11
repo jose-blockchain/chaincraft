@@ -1,16 +1,15 @@
 # crypto_primitives/address.py
 
 import hashlib
-import os
 from typing import Tuple, Optional
 
 try:
     from cryptography.hazmat.primitives.asymmetric import ec
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives import serialization
 except ImportError:
     raise ImportError(
-        "Please install 'cryptography' library (pip install cryptography) to use ECDSA functionality."
+        "Please install 'cryptography' library "
+        "(pip install cryptography) to use ECDSA functionality."
     )
 
 from .sign import ECDSASignaturePrimitive
@@ -113,7 +112,7 @@ def recover_public_key(
 ) -> Optional[ec.EllipticCurvePublicKey]:
     """
     Recover the public key from a signature and message hash.
-    
+
     Note: This is a simplified placeholder. True public key recovery is not directly
     supported in the cryptography library without additional code.
 
@@ -126,11 +125,11 @@ def recover_public_key(
     """
     if len(signature) < 65:
         raise ValueError("Signature must be at least 65 bytes (r, s, v)")
-        
+
     # Note: Public key recovery is not directly supported in cryptography
     # For a complete implementation, you would need to use additional libraries
     # or implement the recovery algorithm manually
-    
+
     # This is a placeholder returning None for now
     # In a real implementation, you would compute the actual public key
     return None

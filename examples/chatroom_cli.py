@@ -1,13 +1,10 @@
 import argparse
-import sys
-import time
 import json
-import threading
-import random
-
-
 import os
+import random
 import sys
+import threading
+import time
 
 # Try to import from installed package first, fall back to direct imports
 try:
@@ -74,9 +71,8 @@ class ChatroomCLI:
             self.node.connect_to_peer(host, int(p), discovery=True)
             self.node.connect_to_peer_locally(host, int(p))
 
-        print(
-            f"{STAR_EMOJI} {COLOR_BOLD}Chatroom CLI started at {self.node.host}:{self.node.port}{COLOR_RESET}"
-        )
+        addr = f"{self.node.host}:{self.node.port}"
+        print(f"{STAR_EMOJI} {COLOR_BOLD}Chatroom CLI started at {addr}{COLOR_RESET}")
         print(
             f"Your ephemeral ECDSA public key (PEM):\n{COLOR_CYAN}{self.pub_pem}{COLOR_RESET}\n"
         )

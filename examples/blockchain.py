@@ -3,27 +3,22 @@
 import hashlib
 import json
 import time
-import random
-
 import os
 import sys
+from dataclasses import dataclass
+from typing import List, Dict, Any, Optional
+
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import hashes, serialization
 
 # Try to import from installed package first, fall back to direct imports
 try:
-    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_object import SharedObject
     from chaincraft.shared_message import SharedMessage
 except ImportError:
-    # Add parent directory to path as fallback
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-    from chaincraft.shared_object import SharedObject, SharedObjectException
+    from chaincraft.shared_object import SharedObject
     from chaincraft.shared_message import SharedMessage
-from typing import List, Dict, Any, Optional
-import secrets
-from dataclasses import dataclass
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.exceptions import InvalidSignature
-import base64
 
 
 class BlockchainUtils:
@@ -101,16 +96,16 @@ class BlockchainUtils:
         try:
             # Load the public key from PEM format
             key = serialization.load_pem_public_key(public_key.encode())
-            
+
             # Get public key in raw bytes format
             public_key_bytes = key.public_bytes(
                 encoding=serialization.Encoding.X962,
                 format=serialization.PublicFormat.UncompressedPoint
             )
-            
+
             # Remove the first byte (0x04 for uncompressed keys) and hash
             public_key_bytes = public_key_bytes[1:]
-            
+
             # Hash the public key and take last 20 bytes (like Ethereum)
             address = hashlib.sha256(public_key_bytes).digest()[-20:].hex()
             return f"0x{address}"
@@ -127,7 +122,7 @@ class BlockchainUtils:
 
         # Load private key from PEM string
         private_key = serialization.load_pem_private_key(
-            private_key_str.encode(), 
+            private_key_str.encode(),
             password=None
         )
 
@@ -136,7 +131,7 @@ class BlockchainUtils:
             message,
             ec.ECDSA(hashes.SHA256())
         )
-        
+
         # Convert to hex
         return signature.hex()
 
@@ -150,10 +145,10 @@ class BlockchainUtils:
         try:
             # Convert hex string to bytes for signature
             signature_bytes = bytes.fromhex(signature)
-            
+
             # Load public key from PEM string
             public_key = serialization.load_pem_public_key(public_key_str.encode())
-            
+
             # Verify the signature
             public_key.verify(
                 signature_bytes,
@@ -426,9 +421,8 @@ class Mempool(SharedObject):
                 if tx_id in self.transactions:
                     del self.transactions[tx_id]
 
-            print(
-                f"Cleared {len(block.transactions)} transactions from mempool after block {block.index}"
-            )
+            n = len(block.transactions)
+            print(f"Cleared {n} transactions from mempool after block {block.index}")
 
     # These methods aren't needed for Mempool since it's non-merklelized,
     # but SharedObject requires them to be implemented
@@ -519,7 +513,7 @@ class Ledger(SharedObject):
 
                 # Check block integrity and proof-of-work
                 if not block.is_valid(self.difficulty):
-                    print(f"Invalid block: Failed proof-of-work check")
+                    print("Invalid block: Failed proof-of-work check")
                     return False
 
                 # Check block index
@@ -531,7 +525,7 @@ class Ledger(SharedObject):
 
                 # Check previous hash
                 if block.previous_hash != self.chain[-1].hash:
-                    print(f"Invalid block: Previous hash doesn't match")
+                    print("Invalid block: Previous hash doesn't match")
                     return False
 
                 # Validate each transaction in the block
