@@ -179,8 +179,13 @@ class ChatroomObject(SharedObject):
             self.chatrooms[cname]["messages"].append(data)
 
         elif msg_type == "POST_MESSAGE":
-            # This is already appended to messages
-            self.chatrooms[cname]["messages"].append(data)
+            sig = data.get("signature")
+            posts = [
+                m for m in self.chatrooms[cname]["messages"]
+                if m.get("message_type") == "POST_MESSAGE"
+            ]
+            if not any(m.get("signature") == sig for m in posts):
+                self.chatrooms[cname]["messages"].append(data)
 
     # ---------------------------------------------------
     # Non-merkelized stubs below

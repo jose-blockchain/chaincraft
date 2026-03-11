@@ -411,7 +411,7 @@ class TestChatroomProtocol(unittest.TestCase):
         # total: 1 CREATE + 2 REQ + 2 ACCEPT + 4 POST = 9
         self.assertTrue(self.wait_for_db_count(9, timeout=10))
 
-        # Check final chat messages
+        # Check final chat messages (dedup by signature in ChatroomObject)
         for node in self.nodes:
             chat_obj = node.shared_objects[0]
             post_msgs = get_post_messages(chat_obj, room_name)
