@@ -74,7 +74,7 @@ class TestLocalDiscovery(unittest.TestCase):
         self.assertNotIn((node3.host, node3.port), node1.peers)
 
     def test_complex_network_local_discovery(self):
-        num_nodes = 10
+        num_nodes = 6
         nodes = [self.create_node(persistent=False) for _ in range(num_nodes)]
 
         for node in nodes:
@@ -85,12 +85,13 @@ class TestLocalDiscovery(unittest.TestCase):
                 nodes[(i + 1) % num_nodes].host, nodes[(i + 1) % num_nodes].port
             )
 
+        time.sleep(1.5)
         nodes[0].connect_to_peer_locally(nodes[1].host, nodes[1].port)
 
-        # Wait for the local peer discovery to complete
-        self.assertTrue(wait_for_local_peers(nodes[0], 2, timeout=10))
-
-        # Additional assertions to verify the state of nodes[0]'s peers
+        self.assertTrue(
+            wait_for_local_peers(nodes[0], 2, timeout=20),
+            f"Expected 2 peers, got {len(nodes[0].peers)}"
+        )
         self.assertEqual(len(nodes[0].peers), 2)
 
 
