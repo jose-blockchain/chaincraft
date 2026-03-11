@@ -1,7 +1,6 @@
 # tests/test_start.py
 import unittest
 import time
-import socket
 import dbm.ndbm
 from chaincraft import ChaincraftNode
 

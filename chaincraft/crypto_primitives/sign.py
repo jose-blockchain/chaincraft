@@ -6,11 +6,11 @@ try:
     from cryptography.exceptions import InvalidSignature
 except ImportError:
     raise ImportError(
-        "Please install 'cryptography' library (pip install cryptography) to use ECDSA functionality."
+        "Please install 'cryptography' library "
+        "(pip install cryptography) to use ECDSA functionality."
     )
 
 from .abstract import KeyCryptoPrimitive
-import hashlib
 
 
 class ECDSASignaturePrimitive(KeyCryptoPrimitive):
@@ -36,7 +36,7 @@ class ECDSASignaturePrimitive(KeyCryptoPrimitive):
         """
         if not self.private_key:
             raise ValueError("Private key not generated or set.")
-        
+
         signature = self.private_key.sign(
             data,
             ec.ECDSA(hashes.SHA256())
@@ -73,7 +73,7 @@ class ECDSASignaturePrimitive(KeyCryptoPrimitive):
             raise ValueError(
                 "Public key not available (generate_key or set_key first)."
             )
-        
+
         pem_data = self.public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
@@ -106,7 +106,7 @@ class ECDSASignaturePrimitive(KeyCryptoPrimitive):
         """
         if not self.private_key:
             raise ValueError("Private key not generated or set.")
-        
+
         signature = self.sign(data)
         # Add a recovery byte (this is a placeholder - in a real implementation
         # you would need to calculate the actual recovery ID)

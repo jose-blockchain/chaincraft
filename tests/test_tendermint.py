@@ -1,15 +1,12 @@
 # tests/test_tendermint.py
 
 import unittest
-import time
-import json
-import threading
-import random
 import os
 import signal
 import sys
+import time
 
-# Try to import from installed package first, fall back to direct imports
+# Try to import from installed package first, fall back to direct imports, fall back to direct imports
 try:
     from chaincraft import ChaincraftNode, SharedMessage
     from examples.tendermint_bft import (
@@ -53,9 +50,9 @@ def force_cleanup():
                     try:
                         os.kill(process_pid, signal.SIGKILL)
                         print(f"Killed process {process_pid}")
-                    except:
+                    except Exception:
                         pass
-        except:
+        except Exception:
             pass
 
 
@@ -66,7 +63,7 @@ def cleanup_nodes(tendermint_nodes, nodes):
         if node:
             try:
                 node.stop()
-            except:
+            except Exception:
                 pass
 
     # Ensure some time for cleanup
@@ -77,7 +74,7 @@ def cleanup_nodes(tendermint_nodes, nodes):
         if node:
             try:
                 node.close()
-            except:
+            except Exception:
                 pass
 
     # Allow time for ports to be released
@@ -571,9 +568,6 @@ class TestTendermintBFT(unittest.TestCase):
         # Create the message
         block_message = SharedMessage(block_data)
 
-        # Initial block count
-        initial_block_count = len(tendermint.blocks)
-
         # Process block message - should pass without errors
         tendermint.add_message(block_message)
 
@@ -606,7 +600,7 @@ class TestTendermintBFT(unittest.TestCase):
                     node.stop()
                 for node in nodes:
                     node.close()
-            except:
+            except Exception:
                 pass
             # Force cleanup as a backup
             force_cleanup()

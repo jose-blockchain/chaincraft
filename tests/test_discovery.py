@@ -1,6 +1,7 @@
 # tests/test_discovery.py
 import unittest
-import time, random
+import random
+import time
 from chaincraft import ChaincraftNode
 
 random.seed(7331)

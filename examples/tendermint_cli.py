@@ -2,39 +2,27 @@
 # examples/tendermint_cli.py
 
 import argparse
+import hashlib
 import json
 import os
+import random
+import socket
 import sys
 import time
-import socket
-import threading
-import random
-
-import os
-import sys
 
 # Try to import from installed package first, fall back to direct imports
 try:
-    from chaincraft.crypto_primitives.address import (
-        generate_new_address,
-        is_valid_address,
-    )
+    from chaincraft.crypto_primitives.address import is_valid_address
+    from chaincraft import ChaincraftNode
     from examples.tendermint_bft import TendermintBFT, TendermintNode
 except ImportError:
-    # Add parent directory to path as fallback
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-    from chaincraft.crypto_primitives.address import (
-        generate_new_address,
-        is_valid_address,
-    )
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from chaincraft.crypto_primitives.address import is_valid_address
+    from chaincraft import ChaincraftNode
     from examples.tendermint_bft import TendermintBFT, TendermintNode
-import hashlib
-from typing import List, Dict, Any, Optional, Set
 
-# Add parent directory to path so we can import from project root
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from chaincraft import ChaincraftNode
+from typing import Dict, Any
 
 
 class TendermintCLI:
@@ -119,15 +107,13 @@ class TendermintCLI:
         with open("genesis.json", "w") as f:
             json.dump(genesis, f, indent=2)
 
-        print(f"Genesis file created: genesis.json")
+        print("Genesis file created: genesis.json")
         print(f"Validator address: {self.tendermint.validator_address}")
-        print(f"Network initialized successfully!")
+        print("Network initialized successfully!")
         print(
             f"To start this node, run: python {sys.argv[0]} start --config {args.config}"
         )
-        print(
-            f"For other nodes to join, share genesis.json and update their seed_nodes config."
-        )
+        print("For other nodes to join, share genesis.json and update seed_nodes config.")
 
     def start_node(self, args) -> None:
         """Start a Tendermint node"""
@@ -137,12 +123,7 @@ class TendermintCLI:
         print(f"Listening on {config['host']}:{config['port']}")
 
         # Create and start Chaincraft node
-        self.node = ChaincraftNode(
-            host=config["host"],
-            port=config["port"],
-            node_id=config["node_id"],
-            persistent=True,
-        )
+        self.node = ChaincraftNode(port=config["port"], persistent=True)
 
         # Create Tendermint BFT instance
         self.tendermint = TendermintBFT()
@@ -172,8 +153,8 @@ class TendermintCLI:
 
         self.tendermint_node.start()
 
-        print(f"Node started successfully!")
-        print(f"Press Ctrl+C to stop...")
+        print("Node started successfully!")
+        print("Press Ctrl+C to stop...")
 
         try:
             while True:
@@ -200,7 +181,7 @@ class TendermintCLI:
         try:
             with open(args.genesis, "r") as f:
                 genesis = json.load(f)
-        except:
+        except Exception:
             print(f"Error loading genesis file: {args.genesis}")
             sys.exit(1)
 
@@ -253,14 +234,16 @@ class TendermintCLI:
         print(f"Current Height: {self.tendermint.current_height}")
         print(f"Current Step: {self.tendermint.current_step.name}")
         print(f"Validators: {len(self.tendermint.validators)}")
-        print(
-            f"Latest Block: {self.tendermint.blocks[-1]['hash'][:8]}... @ {self.tendermint.blocks[-1]['height']}"
-        )
+        lb = self.tendermint.blocks[-1]
+        h = lb["hash"][:8]
+        ht = lb["height"]
+        print(f"Latest Block: {h}... @ {ht}")
 
         if self.node:
             print(f"Connected Peers: {len(self.node.peers)}")
             for peer in self.node.peers:
-                print(f"  - {peer.host}:{peer.port}")
+                paddr = f"{peer[0]}:{peer[1]}"
+                print(f"  - {paddr}")
 
         print("==============================\n")
 

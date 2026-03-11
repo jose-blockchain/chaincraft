@@ -2,22 +2,17 @@ import unittest
 import cProfile
 import pstats
 import io
-import time
+import os
 import random
-import json
-import os
-
-import os
 import sys
+import time
 
 # Try to import from installed package first, fall back to direct imports
 try:
-    from chaincraft.shared_message import SharedMessage
     from chaincraft.shared_object import SharedObject
 except ImportError:
     # Add parent directory to path as fallback
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-    from chaincraft.shared_message import SharedMessage
     from chaincraft.shared_object import SharedObject
 from contextlib import contextmanager
 from pstats import SortKey

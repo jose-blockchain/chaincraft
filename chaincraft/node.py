@@ -763,7 +763,7 @@ class ChaincraftNode:
                 matching_objects += 1
                 if obj.is_valid_digest(digest):
                     if self.debug:
-                        print(f"✅ Found matching object with valid digest")
+                        print("✅ Found matching object with valid digest")
                     messages_to_gossip: List[SharedMessage] = obj.gossip_object(digest)
                     if self.debug:
                         print(f"📨 Got {len(messages_to_gossip)} messages to gossip")

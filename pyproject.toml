@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chaincraft"
-version = "0.4.1"
+version = "0.4.2"
 description = "A platform for blockchain education and prototyping"
 readme = "README.md"
 license = { text = "MIT" }
@@ -40,7 +40,6 @@ dev = [
     "pytest>=6.0",
     "flake8>=3.8.0",
     "black>=21.0.0",
-    "mypy>=0.910",
 ]
 
 [project.urls]
@@ -62,9 +61,3 @@ include = ["chaincraft*", "examples*"]
 [tool.black]
 line-length = 88
 target-version = ['py38']
-
-[tool.mypy]
-python_version = "3.8"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true 

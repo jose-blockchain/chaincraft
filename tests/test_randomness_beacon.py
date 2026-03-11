@@ -1,7 +1,6 @@
 import unittest
 import time
 import hashlib
-import json
 import os
 import sys
 import random
@@ -12,7 +11,6 @@ try:
     from examples.randomness_beacon import (
         RandomnessBeacon,
         generate_eth_address,
-        BeaconMiner,
     )
     from chaincraft.shared_message import SharedMessage
 except ImportError:
@@ -22,7 +20,6 @@ except ImportError:
     from examples.randomness_beacon import (
         RandomnessBeacon,
         generate_eth_address,
-        BeaconMiner,
     )
     from chaincraft.shared_message import SharedMessage
 
