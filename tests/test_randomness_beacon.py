@@ -175,9 +175,9 @@ class TestRandomnessBeacon(unittest.TestCase):
 
         # 2. Invalid prev hash
         bad_prev = valid_block.copy()
-        bad_prev[
-            "prevBlockHash"
-        ] = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        bad_prev["prevBlockHash"] = (
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        )
         bad_prev["blockHash"] = beacon._calculate_block_hash(bad_prev)
         self.assertFalse(beacon.is_valid(SharedMessage(data=bad_prev)))
 

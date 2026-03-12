@@ -81,11 +81,11 @@ class BlockchainUtils:
         private_key_str = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
+            encryption_algorithm=serialization.NoEncryption(),
         ).decode()
         public_key_str = public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
         ).decode()
 
         return private_key_str, public_key_str
@@ -100,7 +100,7 @@ class BlockchainUtils:
             # Get public key in raw bytes format
             public_key_bytes = key.public_bytes(
                 encoding=serialization.Encoding.X962,
-                format=serialization.PublicFormat.UncompressedPoint
+                format=serialization.PublicFormat.UncompressedPoint,
             )
 
             # Remove the first byte (0x04 for uncompressed keys) and hash
@@ -122,15 +122,11 @@ class BlockchainUtils:
 
         # Load private key from PEM string
         private_key = serialization.load_pem_private_key(
-            private_key_str.encode(),
-            password=None
+            private_key_str.encode(), password=None
         )
 
         # Sign the message using deterministic ECDSA (RFC 6979)
-        signature = private_key.sign(
-            message,
-            ec.ECDSA(hashes.SHA256())
-        )
+        signature = private_key.sign(message, ec.ECDSA(hashes.SHA256()))
 
         # Convert to hex
         return signature.hex()
@@ -150,11 +146,7 @@ class BlockchainUtils:
             public_key = serialization.load_pem_public_key(public_key_str.encode())
 
             # Verify the signature
-            public_key.verify(
-                signature_bytes,
-                message,
-                ec.ECDSA(hashes.SHA256())
-            )
+            public_key.verify(signature_bytes, message, ec.ECDSA(hashes.SHA256()))
             return True
         except Exception as e:
             print(f"Signature verification error: {e}")

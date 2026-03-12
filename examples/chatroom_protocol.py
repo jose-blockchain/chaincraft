@@ -181,7 +181,8 @@ class ChatroomObject(SharedObject):
         elif msg_type == "POST_MESSAGE":
             sig = data.get("signature")
             posts = [
-                m for m in self.chatrooms[cname]["messages"]
+                m
+                for m in self.chatrooms[cname]["messages"]
                 if m.get("message_type") == "POST_MESSAGE"
             ]
             if not any(m.get("signature") == sig for m in posts):
