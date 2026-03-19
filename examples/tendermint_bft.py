@@ -351,7 +351,9 @@ class TendermintBFT(SharedObject):
         """Process a proposal"""
         proposer = str(proposal.get("proposer", "unknown"))[:10]
         height = proposal.get("height", "unknown")
-        print(f"Node {self.validator_address[:10]}...: Processing proposal from {proposer}... for height {height}")
+        print(
+            f"Node {self.validator_address[:10]}...: Processing proposal from {proposer}... for height {height}"
+        )
 
         # Validate the proposal height and round
         if (
@@ -393,7 +395,9 @@ class TendermintBFT(SharedObject):
             self._broadcast_prevote()
         else:
             step = self.current_step.name
-            print(f"Node {self.validator_address[:10]}...: Received proposal while in {step}, not changing")
+            print(
+                f"Node {self.validator_address[:10]}...: Received proposal while in {step}, not changing"
+            )
 
     def _process_prevote(self, prevote: Dict[str, Any]) -> None:
         """Process a prevote from another validator"""
@@ -407,14 +411,18 @@ class TendermintBFT(SharedObject):
             return
 
         if height > self.current_height:
-            print(f"Node {self.validator_address[:10]}...: Received prevote for future height {height}")
+            print(
+                f"Node {self.validator_address[:10]}...: Received prevote for future height {height}"
+            )
             # Store for future processing
             return
 
         # Add the prevote to our collection
         self.prevotes[height].append(prevote)
         v = str(validator)[:10] if validator else "unknown"
-        print(f"Node {self.validator_address[:10]}...: Added prevote from {v}... for height {height}")
+        print(
+            f"Node {self.validator_address[:10]}...: Added prevote from {v}... for height {height}"
+        )
 
         # Check if we have enough prevotes to move to PRECOMMIT
         self._check_prevotes()
@@ -425,18 +433,24 @@ class TendermintBFT(SharedObject):
         validator = precommit.get("validator")
 
         if height < self.current_height:
-            print(f"Node {self.validator_address[:10]}...: Ignoring outdated precommit for height {height}")
+            print(
+                f"Node {self.validator_address[:10]}...: Ignoring outdated precommit for height {height}"
+            )
             return
 
         if height > self.current_height:
-            print(f"Node {self.validator_address[:10]}...: Received precommit for future height {height}")
+            print(
+                f"Node {self.validator_address[:10]}...: Received precommit for future height {height}"
+            )
             # Store for future processing
             return
 
         # Add the precommit to our collection
         self.precommits[height].append(precommit)
         v = str(validator)[:10] if validator else "unknown"
-        print(f"Node {self.validator_address[:10]}...: Added precommit from {v}... for height {height}")
+        print(
+            f"Node {self.validator_address[:10]}...: Added precommit from {v}... for height {height}"
+        )
 
         # Check if we have enough precommits to create a block
         self._check_precommits()
@@ -462,7 +476,9 @@ class TendermintBFT(SharedObject):
         threshold = (len(self.validators) * 2) // 3 + 1
 
         n = len(self.validators)
-        print(f"Node {self.validator_address[:10]}...: Prevote count: {matching_prevotes}/{n}, need {threshold}")
+        print(
+            f"Node {self.validator_address[:10]}...: Prevote count: {matching_prevotes}/{n}, need {threshold}"
+        )
 
         if matching_prevotes >= threshold:
             print(
@@ -493,7 +509,9 @@ class TendermintBFT(SharedObject):
         threshold = (len(self.validators) * 2) // 3 + 1
 
         n = len(self.validators)
-        print(f"Node {self.validator_address[:10]}...: Precommit count: {matching_precommits}/{n}, need {threshold}")
+        print(
+            f"Node {self.validator_address[:10]}...: Precommit count: {matching_precommits}/{n}, need {threshold}"
+        )
 
         if matching_precommits >= threshold:
             # Only proceed with block creation if we have a real proposal (not nil)
@@ -687,7 +705,9 @@ class TendermintBFT(SharedObject):
 
         if wait_time > 0:
             h = self.current_height + 1
-            print(f"Node {self.validator_address[:10]}...: Waiting {wait_time:.2f}s before height {h}")
+            print(
+                f"Node {self.validator_address[:10]}...: Waiting {wait_time:.2f}s before height {h}"
+            )
             time.sleep(wait_time)
 
         self.current_height += 1
@@ -704,7 +724,9 @@ class TendermintBFT(SharedObject):
         if self.current_height in self.pending_proposals:
             proposal = self.pending_proposals.pop(self.current_height)
             h = self.current_height
-            print(f"Node {self.validator_address[:10]}...: Processing pending proposal for height {h}")
+            print(
+                f"Node {self.validator_address[:10]}...: Processing pending proposal for height {h}"
+            )
             self._process_proposal(proposal)
 
     def start_consensus(self) -> None:

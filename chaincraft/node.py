@@ -217,10 +217,28 @@ class ChaincraftNode:
                 compressed_data: bytes
                 addr: Tuple[str, int]
                 compressed_data, addr = self.socket.recvfrom(self.max_msg_size)
+                message: str = self.decompress_message(compressed_data)
+                # Slush QUERY/RESPONSE: request-response only, do not store
+                try:
+                    data = json.loads(message)
+                    if isinstance(data, dict):
+                        if "SLUSH_QUERY" in data:
+                            for obj in self.shared_objects:
+                                if hasattr(obj, "handle_slush_query"):
+                                    obj.handle_slush_query(addr, data)
+                                    break
+                            continue
+                        if "SLUSH_RESPONSE" in data:
+                            for obj in self.shared_objects:
+                                if hasattr(obj, "handle_slush_response"):
+                                    obj.handle_slush_response(addr, data)
+                                    break
+                            continue
+                except json.JSONDecodeError:
+                    pass
                 message_hash: str = self.hash_message(compressed_data)
                 # Only handle if we've never seen this message
                 if message_hash not in self.db:
-                    message: str = self.decompress_message(compressed_data)
                     self.handle_message(message, message_hash, addr)
             except OSError:
                 if not self.is_running:
@@ -346,6 +364,17 @@ class ChaincraftNode:
             self.save_peers()
 
         return message_hash
+
+    def send_to_peer(self, peer: Tuple[str, int], message: str) -> None:
+        """Send a message to a specific peer (unicast)."""
+        if not self.socket:
+            return
+        try:
+            compressed_message = self.compress_message(message)
+            self.socket.sendto(compressed_message, peer)
+        except Exception as e:
+            if self.debug:
+                print(f"Node {self.port}: Failed send_to_peer {peer}: {e}")
 
     def handle_message(
         self, message: str, message_hash: str, addr: Tuple[str, int]
@@ -710,7 +739,9 @@ class ChaincraftNode:
         Request an update for a shared object with the given class name and digest.
         """
         if self.debug:
-            print(f"\n📤 Requesting update for {class_name} with digest {digest[:8]}...")
+            print(
+                f"\n📤 Requesting update for {class_name} with digest {digest[:8]}..."
+            )
         message: SharedMessage = SharedMessage(
             data={
                 SharedMessage.REQUEST_SHARED_OBJECT_UPDATE: {

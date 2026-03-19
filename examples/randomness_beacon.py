@@ -174,7 +174,9 @@ class RandomnessBeacon(SharedObject):
         if current_last["prevBlockHash"] != new_block["prevBlockHash"]:
             cur = current_last["prevBlockHash"][:8]
             new = new_block["prevBlockHash"][:8]
-            print(f"Previous hash mismatch: current={cur}..., new={new}... - not replacing")
+            print(
+                f"Previous hash mismatch: current={cur}..., new={new}... - not replacing"
+            )
             return
 
         # Compare lexicographical ordering of block hashes
@@ -439,10 +441,14 @@ class BeaconMiner:
                     self.node.create_shared_message(block)
                     h = block["blockHeight"]
                     hsh = block["blockHash"][:8]
-                    print(f"Miner {short_address} found block at height {h} with hash {hsh}...")
+                    print(
+                        f"Miner {short_address} found block at height {h} with hash {hsh}..."
+                    )
                 except SharedObjectException as e:
                     # The block might have been replaced while we were mining
-                    print(f"Miner {short_address}: Block rejected (chain may have changed): {e}")
+                    print(
+                        f"Miner {short_address}: Block rejected (chain may have changed): {e}"
+                    )
 
             except Exception as e:
                 print(f"Mining error for {short_address}: {str(e)}")
