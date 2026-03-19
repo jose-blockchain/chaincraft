@@ -65,76 +65,73 @@ class TestSlushObjectUnit(unittest.TestCase):
         self.assertEqual(slush.gossip_object("abc"), [])
         self.assertEqual(slush.get_messages_since_digest("abc"), [])
 
-    def test_handle_slush_query_adopts_when_uncolored(self):
+    def test_handle_p2p_query_adopts_when_uncolored(self):
         """Uncolored node adopts query color and responds."""
         node = MockNode(port=9010)
         slush = SlushObject(node, k=4, alpha=0.5, m=5)
 
         addr = ("127.0.0.1", 9020)
-        data = {"SLUSH_QUERY": {"r": 1, "col": "R", "from": "127.0.0.1:9020"}}
-        slush.handle_slush_query(addr, data)
+        data = {"p2p": "SLUSH_QUERY", "r": 1, "col": "R", "from": "127.0.0.1:9020"}
+        slush.handle_p2p(addr, data)
 
         self.assertEqual(slush._color, Color.RED)
         self.assertEqual(len(node._sent), 1)
         peer, msg_str = node._sent[0]
         self.assertEqual(peer, addr)
         msg = json.loads(msg_str)
-        self.assertIn("SLUSH_RESPONSE", msg)
-        self.assertEqual(msg["SLUSH_RESPONSE"]["col"], "R")
-        self.assertEqual(msg["SLUSH_RESPONSE"]["r"], 1)
+        self.assertEqual(msg["p2p"], "SLUSH_RESPONSE")
+        self.assertEqual(msg["col"], "R")
+        self.assertEqual(msg["r"], 1)
 
-    def test_handle_slush_query_keeps_color_when_colored(self):
+    def test_handle_p2p_query_keeps_color_when_colored(self):
         """Colored node does not change color, responds with current."""
         node = MockNode(port=9010)
         slush = SlushObject(node, k=4, alpha=0.5, m=5)
         slush._color = Color.BLUE
 
         addr = ("127.0.0.1", 9020)
-        data = {"SLUSH_QUERY": {"r": 1, "col": "R", "from": "127.0.0.1:9020"}}
-        slush.handle_slush_query(addr, data)
+        data = {"p2p": "SLUSH_QUERY", "r": 1, "col": "R", "from": "127.0.0.1:9020"}
+        slush.handle_p2p(addr, data)
 
         self.assertEqual(slush._color, Color.BLUE)
         msg = json.loads(node._sent[0][1])
-        self.assertEqual(msg["SLUSH_RESPONSE"]["col"], "B")
+        self.assertEqual(msg["col"], "B")
 
-    def test_handle_slush_query_ignores_malformed(self):
+    def test_handle_p2p_query_ignores_malformed(self):
         """Malformed query does not change state or send response."""
         node = MockNode(port=9010)
         slush = SlushObject(node, k=4, alpha=0.5, m=5)
 
-        slush.handle_slush_query(("127.0.0.1", 9020), {})
+        slush.handle_p2p(("127.0.0.1", 9020), {"p2p": "SLUSH_QUERY"})
         self.assertEqual(slush._color, Color.UNCOLORED)
         self.assertEqual(len(node._sent), 0)
 
-        slush.handle_slush_query(("127.0.0.1", 9020), {"SLUSH_QUERY": {}})
-        self.assertEqual(len(node._sent), 0)
-
-    def test_handle_slush_response_collects(self):
-        """Responses are collected per round; round_done set when k reached."""
+    def test_handle_p2p_response_collects(self):
+        """Responses are collected per round; when k reached, round is processed."""
         node = MockNode(port=9010, peers=[("127.0.0.1", 9020), ("127.0.0.1", 9021)])
         slush = SlushObject(node, k=2, alpha=0.5, m=5)
+        slush._color = Color.RED
         slush._pending[1] = {}
 
-        slush.handle_slush_response(
-            ("127.0.0.1", 9020), {"SLUSH_RESPONSE": {"r": 1, "col": "R"}}
+        slush.handle_p2p(
+            ("127.0.0.1", 9020), {"p2p": "SLUSH_RESPONSE", "r": 1, "col": "R"}
         )
         self.assertEqual(len(slush._pending[1]), 1)
-        self.assertFalse(slush._round_done.is_set())
 
-        slush.handle_slush_response(
-            ("127.0.0.1", 9021), {"SLUSH_RESPONSE": {"r": 1, "col": "R"}}
+        slush.handle_p2p(
+            ("127.0.0.1", 9021), {"p2p": "SLUSH_RESPONSE", "r": 1, "col": "R"}
         )
         self.assertEqual(len(slush._pending[1]), 2)
-        self.assertTrue(slush._round_done.is_set())
+        self.assertIn(1, slush._processed_rounds)
 
-    def test_handle_slush_response_ignores_malformed(self):
+    def test_handle_p2p_response_ignores_malformed(self):
         """Malformed response does not affect pending."""
         node = MockNode(port=9010)
         slush = SlushObject(node, k=2, alpha=0.5, m=5)
         slush._pending[1] = {}
 
-        slush.handle_slush_response(("127.0.0.1", 9020), {})
-        slush.handle_slush_response(("127.0.0.1", 9020), {"SLUSH_RESPONSE": {"r": 1}})
+        slush.handle_p2p(("127.0.0.1", 9020), {"p2p": "SLUSH_RESPONSE"})
+        slush.handle_p2p(("127.0.0.1", 9020), {"p2p": "SLUSH_RESPONSE", "r": 1})
         self.assertEqual(len(slush._pending[1]), 0)
 
 
