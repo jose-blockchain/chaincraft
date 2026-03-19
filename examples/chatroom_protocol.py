@@ -1,6 +1,6 @@
 import time
 import json
-from typing import List, Dict
+from typing import Callable, List, Dict, Optional
 import os
 import sys
 
@@ -51,8 +51,9 @@ class ChatroomObject(SharedObject):
       }
     """
 
-    def __init__(self):
+    def __init__(self, on_message_added: Optional[Callable[[str, dict], None]] = None):
         self.chatrooms: Dict[str, Dict] = {}
+        self.on_message_added = on_message_added
 
     def is_valid(self, message: SharedMessage) -> bool:
         """
@@ -165,18 +166,20 @@ class ChatroomObject(SharedObject):
                 "members": set(),
                 "messages": [],
             }
-            # Also store it in the messages array if you want to see it in the CLI
             self.chatrooms[cname]["messages"].append(data)
+            if self.on_message_added:
+                self.on_message_added(cname, data)
 
         elif msg_type == "REQUEST_JOIN":
-            # Currently, you do nothing, so the CLI never sees it
-            # FIX: append to chat messages so the CLI background loop can auto-accept:
             self.chatrooms[cname]["messages"].append(data)
+            if self.on_message_added:
+                self.on_message_added(cname, data)
 
         elif msg_type == "ACCEPT_MEMBER":
             self.chatrooms[cname]["members"].add(data["requester_key_pem"])
-            # Also store it for the CLI to see
             self.chatrooms[cname]["messages"].append(data)
+            if self.on_message_added:
+                self.on_message_added(cname, data)
 
         elif msg_type == "POST_MESSAGE":
             sig = data.get("signature")
@@ -187,6 +190,8 @@ class ChatroomObject(SharedObject):
             ]
             if not any(m.get("signature") == sig for m in posts):
                 self.chatrooms[cname]["messages"].append(data)
+                if self.on_message_added:
+                    self.on_message_added(cname, data)
 
     # ---------------------------------------------------
     # Non-merkelized stubs below

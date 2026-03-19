@@ -218,22 +218,14 @@ class ChaincraftNode:
                 addr: Tuple[str, int]
                 compressed_data, addr = self.socket.recvfrom(self.max_msg_size)
                 message: str = self.decompress_message(compressed_data)
-                # Slush QUERY/RESPONSE: request-response only, do not store
+                # P2P messages: direct between two nodes, not stored/gossiped.
                 try:
                     data = json.loads(message)
-                    if isinstance(data, dict):
-                        if "SLUSH_QUERY" in data:
-                            for obj in self.shared_objects:
-                                if hasattr(obj, "handle_slush_query"):
-                                    obj.handle_slush_query(addr, data)
-                                    break
-                            continue
-                        if "SLUSH_RESPONSE" in data:
-                            for obj in self.shared_objects:
-                                if hasattr(obj, "handle_slush_response"):
-                                    obj.handle_slush_response(addr, data)
-                                    break
-                            continue
+                    if isinstance(data, dict) and "p2p" in data:
+                        for obj in self.shared_objects:
+                            if hasattr(obj, "handle_p2p"):
+                                obj.handle_p2p(addr, data)
+                        continue
                 except json.JSONDecodeError:
                     pass
                 message_hash: str = self.hash_message(compressed_data)
