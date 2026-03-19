@@ -83,12 +83,30 @@ When a peer sends a message to this node:
 2. `handle_message()` is called.
 3. `is_message_accepted()` checks schema constraints (optional).
 4. `_handle_shared_message()` runs:
-   - Calls `obj.is_valid(msg)` on **every** SharedObject in the node.
-   - If **all** return `True`, calls `obj.add_message(msg)` on each.
+   - **Validation phase**: calls `obj.is_valid(msg)` on **every**
+     SharedObject in the node. If **any** returns `False`, the message
+     is rejected and the sender receives a strike (ban after 3 strikes).
+   - **Processing phase**: only if **all** objects validated, calls
+     `obj.add_message(msg)` **sequentially** on each SharedObject in
+     registration order. Each object gets one shot to update its
+     internal state for this message.
    - Then stores and broadcasts (gossips) the message to all peers.
-   - If any `is_valid` returns `False`, the message is rejected and
-     the sender receives a strike (ban after 3 strikes).
 5. Your `add_message()` runs protocol state transitions.
+
+This two-phase design supports nodes with **multiple SharedObjects**
+that represent different facets of the same protocol. A typical example
+is a blockchain node with three objects:
+
+- A **merkelized Chain** (ordered blocks with digest-linked sync)
+- A **merkelized Ledger / UTXO set** (account balances; merkelized so
+  nodes can verify they share the same state snapshot)
+- A **non-merkelized Mempool** (backlog of unconfirmed transactions
+  pending inclusion in the next block; integrity not critical)
+
+A new message (e.g. a block) must be valid for all three before any
+of them process it. Once accepted, each object updates its own state
+sequentially: the Chain appends the block, the Ledger applies the
+balance changes, and the Mempool removes the now-confirmed transactions.
 
 When this node creates a message locally:
 
