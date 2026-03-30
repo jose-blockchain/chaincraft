@@ -11,7 +11,7 @@ import queue
 
 # Try to import from installed package first, fall back to direct imports
 try:
-    from chaincraft.shared_object import SharedObject
+    from chaincraft.core_objects import MerkelizedObject
     from chaincraft.shared_message import SharedMessage
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
     from chaincraft.crypto_primitives.address import (
@@ -22,8 +22,15 @@ try:
     )
 except ImportError:
     # Add parent directory to path as fallback
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-    from chaincraft.shared_object import SharedObject
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    if "chaincraft" in sys.modules:
+        del sys.modules["chaincraft"]
+    try:
+        from chaincraft.core_objects import MerkelizedObject
+    except ImportError:
+        from chaincraft.shared_object import SharedObject as MerkelizedObject
     from chaincraft.shared_message import SharedMessage
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
     from chaincraft.crypto_primitives.address import (
@@ -46,7 +53,7 @@ class ConsensusStep(Enum):
     COMMIT = auto()  # Validators commit if they see enough precommits
 
 
-class TendermintBFT(SharedObject):
+class TendermintBFT(MerkelizedObject):
     """Implementation of the Tendermint BFT consensus algorithm"""
 
     # Default configuration

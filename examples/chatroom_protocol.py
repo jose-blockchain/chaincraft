@@ -6,12 +6,19 @@ import sys
 
 # Try to import from installed package first, fall back to direct imports
 try:
-    from chaincraft.shared_object import SharedObject
+    from chaincraft.core_objects import CoreSharedObject
     from chaincraft.shared_message import SharedMessage
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 except ImportError:
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-    from chaincraft.shared_object import SharedObject
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    if "chaincraft" in sys.modules:
+        del sys.modules["chaincraft"]
+    try:
+        from chaincraft.core_objects import CoreSharedObject
+    except ImportError:
+        from chaincraft.shared_object import SharedObject as CoreSharedObject
     from chaincraft.shared_message import SharedMessage
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
 
@@ -34,7 +41,7 @@ def verify_signature(public_key_pem: str, payload_str: str, signature_hex: str) 
         return False
 
 
-class ChatroomObject(SharedObject):
+class ChatroomObject(CoreSharedObject):
     """
     A non-merkelized chatroom protocol.
     Manages multiple chatrooms in memory:
@@ -192,27 +199,3 @@ class ChatroomObject(SharedObject):
                 self.chatrooms[cname]["messages"].append(data)
                 if self.on_message_added:
                     self.on_message_added(cname, data)
-
-    # ---------------------------------------------------
-    # Non-merkelized stubs below
-    # ---------------------------------------------------
-    def is_merkelized(self) -> bool:
-        return False
-
-    def get_latest_digest(self) -> str:
-        return ""
-
-    def has_digest(self, hash_digest: str) -> bool:
-        return False
-
-    def is_valid_digest(self, hash_digest: str) -> bool:
-        return False
-
-    def add_digest(self, hash_digest: str) -> bool:
-        return False
-
-    def gossip_object(self, digest) -> List[SharedMessage]:
-        return []
-
-    def get_messages_since_digest(self, digest: str) -> List[SharedMessage]:
-        return []

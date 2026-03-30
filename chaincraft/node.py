@@ -20,6 +20,7 @@ class ChaincraftNode:
     PEERS: str = "PEERS"
     BANNED_PEERS: str = "BANNED_PEERS"
     INDEXED_FIELDS: str = "INDEXED_FIELDS"
+    CORE_OBJECT_DB_PREFIX: str = "__core_object__:"
 
     def __init__(
         self,
@@ -86,6 +87,8 @@ class ChaincraftNode:
         self.accepted_message_types: List[str] = []
         self.invalid_message_counts: Dict[Tuple[str, int], int] = {}
         self.shared_objects: List[SharedObject] = shared_objects or []
+        for obj in self.shared_objects:
+            self._attach_shared_object_context(obj)
 
         # Dictionary to store which fields should be indexed for each message type
         self.indexed_fields: Dict[str, List[str]] = {}
@@ -162,7 +165,15 @@ class ChaincraftNode:
         """
         Add a SharedObject for the node to validate/integrate messages.
         """
+        self._attach_shared_object_context(shared_object)
         self.shared_objects.append(shared_object)
+
+    def _attach_shared_object_context(self, shared_object: SharedObject) -> None:
+        """
+        Inject node context into shared objects that support it.
+        """
+        if hasattr(shared_object, "_attach_node"):
+            shared_object._attach_node(self)
 
     def start(self) -> None:
         """
@@ -248,8 +259,7 @@ class ChaincraftNode:
                     keys_to_share: List[bytes] = [
                         key
                         for key in self.db.keys()
-                        if key != self.PEERS.encode()
-                        and key != self.BANNED_PEERS.encode()
+                        if not self._is_internal_db_key(key)
                     ]
                     for key in keys_to_share:
                         object_to_share: str = self._load_db_value(key)
@@ -257,6 +267,24 @@ class ChaincraftNode:
                 time.sleep(self.gossip_interval)
             except Exception as e:
                 print(f"Error in gossip: {e}")
+
+    def _is_internal_db_key(self, key: Union[str, bytes]) -> bool:
+        """
+        Return True if this key is node-internal and must not be gossiped.
+        """
+        if isinstance(key, bytes):
+            try:
+                decoded = key.decode()
+            except Exception:
+                decoded = ""
+        else:
+            decoded = key
+
+        if decoded in (self.PEERS, self.BANNED_PEERS, self.INDEXED_FIELDS):
+            return True
+        if decoded.startswith(self.CORE_OBJECT_DB_PREFIX):
+            return True
+        return False
 
     def connect_to_peer(self, host: str, port: int, discovery: bool = False) -> None:
         """
