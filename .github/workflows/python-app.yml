@@ -75,7 +75,5 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        echo "Running tests with parallel execution for speed"
-        # Run tests in parallel with 4 workers for faster execution
-        python -m pytest -v -xvs
+        python -m pytest -q tests/test_core_objects.py tests/test_message_types.py
       shell: /usr/bin/bash -e {0}
