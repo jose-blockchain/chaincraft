@@ -23,7 +23,7 @@ import os
 import sys
 
 try:
-    from chaincraft.shared_object import SharedObject
+    from chaincraft.core_objects import CoreSharedObject
     from chaincraft.shared_message import SharedMessage
 except ImportError:
     _root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -31,7 +31,12 @@ except ImportError:
         sys.path.insert(0, _root)
     if os.getcwd() not in sys.path:
         sys.path.insert(0, os.getcwd())
-    from chaincraft.shared_object import SharedObject
+    if "chaincraft" in sys.modules:
+        del sys.modules["chaincraft"]
+    try:
+        from chaincraft.core_objects import CoreSharedObject
+    except ImportError:
+        from chaincraft.shared_object import SharedObject as CoreSharedObject
     from chaincraft.shared_message import SharedMessage
 
 
@@ -47,7 +52,7 @@ class Color(Enum):
 NodeT = Any
 
 
-class SlushObject(SharedObject):
+class SlushObject(CoreSharedObject):
     """
     Slush consensus as SharedObject. Requires ChaincraftNode for real network:
     uses node.send_to_peer for UDP queries/responses, node.peers for sampling.
@@ -183,27 +188,6 @@ class SlushObject(SharedObject):
 
     def add_message(self, message: SharedMessage) -> None:
         pass
-
-    def is_merkelized(self) -> bool:
-        return False
-
-    def get_latest_digest(self) -> str:
-        return ""
-
-    def has_digest(self, hash_digest: str) -> bool:
-        return False
-
-    def is_valid_digest(self, hash_digest: str) -> bool:
-        return False
-
-    def add_digest(self, hash_digest: str) -> bool:
-        return False
-
-    def gossip_object(self, digest: str) -> List[SharedMessage]:
-        return []
-
-    def get_messages_since_digest(self, digest: str) -> List[SharedMessage]:
-        return []
 
 
 def run_slush_nodes(

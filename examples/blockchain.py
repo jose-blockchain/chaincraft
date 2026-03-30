@@ -13,11 +13,21 @@ from cryptography.hazmat.primitives import hashes, serialization
 
 # Try to import from installed package first, fall back to direct imports
 try:
-    from chaincraft.shared_object import SharedObject
+    from chaincraft.core_objects import Mempool as CoreMempool
+    from chaincraft.core_objects import Blockchain as CoreBlockchain
     from chaincraft.shared_message import SharedMessage
 except ImportError:
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-    from chaincraft.shared_object import SharedObject
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    if "chaincraft" in sys.modules:
+        del sys.modules["chaincraft"]
+    try:
+        from chaincraft.core_objects import Mempool as CoreMempool
+        from chaincraft.core_objects import Blockchain as CoreBlockchain
+    except ImportError:
+        from chaincraft.shared_object import SharedObject as CoreMempool
+        from chaincraft.shared_object import SharedObject as CoreBlockchain
     from chaincraft.shared_message import SharedMessage
 
 
@@ -346,7 +356,7 @@ class Block:
         return BlockchainUtils.verify_proof_of_work(block_data, self.nonce, difficulty)
 
 
-class Mempool(SharedObject):
+class Mempool(CoreMempool):
     """
     Mempool for holding pending transactions before they're included in blocks.
     Not merklelized since it's a temporary storage.
@@ -354,6 +364,7 @@ class Mempool(SharedObject):
 
     def __init__(self, difficulty: int = 4):
         """Initialize mempool with empty transactions dict"""
+        super().__init__()
         self.transactions: Dict[str, Transaction] = {}  # tx_id -> Transaction
         self.difficulty = difficulty
 
@@ -416,29 +427,6 @@ class Mempool(SharedObject):
             n = len(block.transactions)
             print(f"Cleared {n} transactions from mempool after block {block.index}")
 
-    # These methods aren't needed for Mempool since it's non-merklelized,
-    # but SharedObject requires them to be implemented
-    def is_merkelized(self) -> bool:
-        return False
-
-    def get_latest_digest(self) -> str:
-        return ""
-
-    def has_digest(self, hash_digest: str) -> bool:
-        return False
-
-    def is_valid_digest(self, hash_digest: str) -> bool:
-        return False
-
-    def add_digest(self, hash_digest: str) -> bool:
-        return False
-
-    def gossip_object(self, digest) -> List[SharedMessage]:
-        return []
-
-    def get_messages_since_digest(self, digest: str) -> List[SharedMessage]:
-        return []
-
     def get_transactions_by_fee(self, max_count: int = 10) -> List[Transaction]:
         """Get transactions sorted by fee (highest first), up to max_count"""
         sorted_txs = sorted(
@@ -447,7 +435,7 @@ class Mempool(SharedObject):
         return sorted_txs[:max_count]
 
 
-class Ledger(SharedObject):
+class Ledger(CoreBlockchain):
     """
     Blockchain ledger implementation that maintains the chain of blocks
     and tracks account balances. Merklelized for efficient state sync.
@@ -455,6 +443,7 @@ class Ledger(SharedObject):
 
     def __init__(self, difficulty: int = 4, reward: float = 10.0):
         """Initialize blockchain with genesis block"""
+        super().__init__()
         self.chain: List[Block] = []
         self.balances: Dict[str, float] = {}  # address -> balance
         self.difficulty = difficulty
