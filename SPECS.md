@@ -259,6 +259,10 @@ node.add_shared_object(protocol)
 node.start()
 ```
 
+You may also wrap this pattern in a protocol-specific node subclass
+that inherits `ChaincraftNode` and auto-registers the protocol object
+(for example, `SnowballNode` in `examples/snowball_protocol.py`).
+
 ### 3. Initiate protocol actions
 
 ```python
@@ -319,6 +323,7 @@ for the pattern.
 | Randomness Beacon | Gossip (merkelized) | `examples/randomness_beacon.py` |
 | Slush | Request-response | `examples/slush_protocol.py` |
 | Snowflake | Request-response | `examples/snowflake_protocol.py` |
+| Snowball | Request-response | `examples/snowball_protocol.py` |
 | Tendermint BFT | Gossip (non-merkelized) | `examples/tendermint_bft.py` |
 
 ### Gossip-path example (Chatroom)
