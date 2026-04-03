@@ -82,9 +82,13 @@ class TestSnowballObjectUnit(unittest.TestCase):
         sb._query_id = 1
         sb._pending[1] = {}
 
-        sb.handle_p2p(("127.0.0.1", 9520), {"p2p": "SNOWBALL_RESPONSE", "qid": 1, "col": "R"})
+        sb.handle_p2p(
+            ("127.0.0.1", 9520), {"p2p": "SNOWBALL_RESPONSE", "qid": 1, "col": "R"}
+        )
         self.assertEqual(len(sb._pending[1]), 1)
-        sb.handle_p2p(("127.0.0.1", 9521), {"p2p": "SNOWBALL_RESPONSE", "qid": 1, "col": "R"})
+        sb.handle_p2p(
+            ("127.0.0.1", 9521), {"p2p": "SNOWBALL_RESPONSE", "qid": 1, "col": "R"}
+        )
         self.assertEqual(len(sb._pending[1]), 2)
         self.assertIn(1, sb._processed_qids)
         conf = sb.get_confidence()

@@ -180,7 +180,8 @@ class SnowballObject(CoreSharedObject):
 
             if (
                 self._preference == Color.UNCOLORED
-                or self._confidence[sample_majority] > self._confidence[self._preference]
+                or self._confidence[sample_majority]
+                > self._confidence[self._preference]
             ):
                 self._preference = sample_majority
 
