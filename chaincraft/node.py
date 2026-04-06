@@ -21,6 +21,7 @@ class ChaincraftNode:
     BANNED_PEERS: str = "BANNED_PEERS"
     INDEXED_FIELDS: str = "INDEXED_FIELDS"
     CORE_OBJECT_DB_PREFIX: str = "__core_object__:"
+    UDP_MAX_MESSAGE_SIZE: int = 65507
 
     def __init__(
         self,
@@ -34,6 +35,7 @@ class ChaincraftNode:
         shared_objects: Optional[List[SharedObject]] = None,
         port: Optional[int] = None,
         use_compression: bool = False,
+        transport_protocol: str = "udp",
     ) -> None:
         """
         Initialize the ChaincraftNode with optional parameters.
@@ -42,7 +44,10 @@ class ChaincraftNode:
         self.use_fixed_address: bool = use_fixed_address
         self.indexed: bool = indexed
         self.use_compression: bool = use_compression
-        self.max_msg_size = 14000
+        self.transport_protocol: str = transport_protocol.lower()
+        if self.transport_protocol not in ("udp", "tcp"):
+            raise ValueError("transport_protocol must be either 'udp' or 'tcp'")
+        self.max_msg_size = self.UDP_MAX_MESSAGE_SIZE
 
         if port is not None:
             self.host: str = "127.0.0.1"
@@ -191,13 +196,22 @@ class ChaincraftNode:
 
     def _bind_socket(self) -> None:
         """
-        Attempt to bind a UDP socket to the specified host/port (retry if needed).
+        Attempt to bind a socket to the specified host/port (retry if needed).
         """
         max_retries: int = 10
         for _ in range(max_retries):
             try:
-                self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                socket_type = (
+                    socket.SOCK_DGRAM
+                    if self.transport_protocol == "udp"
+                    else socket.SOCK_STREAM
+                )
+                self.socket = socket.socket(socket.AF_INET, socket_type)
+                if self.transport_protocol == "tcp":
+                    self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 self.socket.bind((self.host, self.port))
+                if self.transport_protocol == "tcp":
+                    self.socket.listen(128)
                 print(f"Node started on {self.host}:{self.port}")
                 return
             except OSError:
@@ -221,13 +235,20 @@ class ChaincraftNode:
 
     def listen_for_messages(self) -> None:
         """
-        Listen for incoming datagrams, decompress them, and handle new messages.
+        Listen for incoming messages, decompress them, and handle new messages.
         """
         while self.is_running:
             try:
                 compressed_data: bytes
                 addr: Tuple[str, int]
-                compressed_data, addr = self.socket.recvfrom(self.max_msg_size)
+                if self.transport_protocol == "udp":
+                    compressed_data, addr = self.socket.recvfrom(self.max_msg_size)
+                else:
+                    conn, addr = self.socket.accept()
+                    with conn:
+                        compressed_data = self._recv_tcp_payload(conn)
+                    if compressed_data is None:
+                        continue
                 message: str = self.decompress_message(compressed_data)
                 # P2P messages: direct between two nodes, not stored/gossiped.
                 try:
@@ -248,6 +269,43 @@ class ChaincraftNode:
                     break
                 else:
                     raise
+
+    def _recv_exact(self, conn: socket.socket, byte_count: int) -> Optional[bytes]:
+        """
+        Read exactly byte_count bytes from a TCP connection.
+        """
+        received = b""
+        while len(received) < byte_count:
+            chunk = conn.recv(byte_count - len(received))
+            if not chunk:
+                return None
+            received += chunk
+        return received
+
+    def _recv_tcp_payload(self, conn: socket.socket) -> Optional[bytes]:
+        """
+        Read one length-prefixed payload from a TCP connection.
+        """
+        header = self._recv_exact(conn, 4)
+        if header is None:
+            return None
+        payload_size = int.from_bytes(header, byteorder="big")
+        if payload_size < 0 or payload_size > self.max_msg_size:
+            return None
+        return self._recv_exact(conn, payload_size)
+
+    def _send_bytes(self, peer: Tuple[str, int], payload: bytes) -> None:
+        """
+        Send payload bytes to a peer using the configured transport.
+        """
+        if self.transport_protocol == "udp":
+            self.socket.sendto(payload, peer)
+            return
+
+        packet = len(payload).to_bytes(4, byteorder="big") + payload
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_socket:
+            tcp_socket.connect(peer)
+            tcp_socket.sendall(packet)
 
     def gossip(self) -> None:
         """
@@ -323,7 +381,7 @@ class ChaincraftNode:
             {SharedMessage.PEER_DISCOVERY: f"{self.host}:{self.port}"}
         )
         compressed_message = self.compress_message(discovery_message)
-        self.socket.sendto(compressed_message, (host, port))
+        self._send_bytes((host, port), compressed_message)
 
     def connect_to_peer_locally(self, host: str, port: int) -> None:
         """
@@ -341,7 +399,7 @@ class ChaincraftNode:
             {SharedMessage.REQUEST_LOCAL_PEERS: f"{self.host}:{self.port}"}
         )
         compressed_message = self.compress_message(request_message)
-        self.socket.sendto(compressed_message, (host, port))
+        self._send_bytes((host, port), compressed_message)
 
     def decompress_message(self, compressed_message: bytes) -> str:
         """
@@ -368,7 +426,7 @@ class ChaincraftNode:
 
         for peer in self.peers:
             try:
-                self.socket.sendto(compressed_message, peer)
+                self._send_bytes(peer, compressed_message)
                 # if self.debug:
                 #    print(f"Node {self.port}: Sent message to peer {peer}")
             except Exception as e:
@@ -391,7 +449,7 @@ class ChaincraftNode:
             return
         try:
             compressed_message = self.compress_message(message)
-            self.socket.sendto(compressed_message, peer)
+            self._send_bytes(peer, compressed_message)
         except Exception as e:
             if self.debug:
                 print(f"Node {self.port}: Failed send_to_peer {peer}: {e}")
@@ -507,7 +565,7 @@ class ChaincraftNode:
         )
         response_message: str = response_object.to_json()
         compressed_message: bytes = self.compress_message(response_message)
-        self.socket.sendto(compressed_message, (host, int(port)))
+        self._send_bytes((host, int(port)), compressed_message)
 
     def _handle_local_peer_response(
         self, shared_message: SharedMessage, addr: Tuple[str, int]
@@ -827,7 +885,7 @@ class ChaincraftNode:
                                     f"📤 Sending next hash {idx + 1}/{len(messages_to_gossip)} to {addr}: {message.data[:8]}..."
                                 )
                             compressed_message: bytes = self.compress_message(json_msg)
-                            self.socket.sendto(compressed_message, addr)
+                            self._send_bytes(addr, compressed_message)
                             if self.debug:
                                 print(f"✅ Send to {addr} successful")
                         except Exception as e:

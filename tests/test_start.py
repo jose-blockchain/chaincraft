@@ -2,6 +2,7 @@
 import unittest
 import time
 import dbm.ndbm
+import socket
 from chaincraft import ChaincraftNode
 
 
@@ -34,6 +35,26 @@ class TestChaincraftNode(unittest.TestCase):
         node.start()
         time.sleep(0.1)  # Give some time for the node to start
         self.assertTrue(hasattr(node, "socket"))
+
+    def test_default_transport_is_udp(self):
+        node = self.create_node()
+        self.assertEqual(node.transport_protocol, "udp")
+        node.start()
+        self.assertEqual(node.socket.type, socket.SOCK_DGRAM)
+
+    def test_tcp_transport_is_optional(self):
+        node = self.create_node(transport_protocol="tcp")
+        node.start()
+        self.assertEqual(node.transport_protocol, "tcp")
+        self.assertEqual(node.socket.type, socket.SOCK_STREAM)
+
+    def test_invalid_transport_protocol_raises(self):
+        with self.assertRaises(ValueError):
+            self.create_node(transport_protocol="invalid")
+
+    def test_max_message_size_matches_udp_max_payload(self):
+        node = self.create_node()
+        self.assertEqual(node.max_msg_size, 65507)
 
     def test_multiple_nodes_different_ports(self):
         node1 = self.create_node()
