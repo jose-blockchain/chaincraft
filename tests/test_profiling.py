@@ -353,7 +353,9 @@ class TestChaincraftProfiling(unittest.TestCase):
 
             deadline = time.time() + 20
             with profile(f"{transport}_stress_receive"):
-                while len(receiver_obj.messages) < num_messages and time.time() < deadline:
+                while (
+                    len(receiver_obj.messages) < num_messages and time.time() < deadline
+                ):
                     time.sleep(0.01)
             end_to_end = time.perf_counter()
 

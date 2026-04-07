@@ -7,30 +7,30 @@ storage, peer management, and concurrency.
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   ChaincraftNode                    │
-│                                                     │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │
-│  │ Listener │  │  Gossip  │  │ Merkelized Sync   │  │
-│  │ (thread) │  │ (thread) │  │     (thread)      │  │
-│  └────┬─────┘  └──────────┘  └───────────────────┘  │
-│       │                                             │
-│       ▼                                             │
-│  handle_message()                                   │
-│       │                                             │
-│       ├── is_message_accepted()                     │
-│       │                                             │
-│       ├── _handle_shared_message()                  │
-│       │       │                                     │
-│       │       ├── obj.is_valid(msg) for ALL objects │
-│       │       │                                     │
-│       │       └── obj.add_message(msg) for EACH     │
-│       │                                             │
-│       └── _store_and_broadcast()                    │
-│               (store in DB, gossip to peers)        │
-│                                                     │
-│  shared_objects: [YourProtocolObject, ...]          │
-└─────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                         ChaincraftNode                        │
+│                                                               │
+│  ┌──────────┐  ┌──────────┐  ┌───────────────────┐            │
+│  │ Listener │  │  Gossip  │  │ Merkelized Sync   │            │
+│  │ (thread) │  │ (thread) │  │     (thread)      │            │
+│  └────┬─────┘  └──────────┘  └───────────────────┘            │
+│       │                                                       │
+│       ▼                                                       │
+│  handle_message()                                             │
+│       │                                                       │
+│       ├── Gossip path: SharedMessage                          │
+│       │    ├── _handle_shared_message()                       │
+│       │    │    ├── obj.is_valid(msg) for ALL objects         │
+│       │    │    └── obj.add_message(msg) for EACH             │
+│       │    └── _store_and_broadcast()                         │
+│       │         (store in DB, hash+dedupe, gossip to peers)   │
+│       │                                                       │
+│       └── P2P direct path: {"p2p": "..."}                     │
+│            └── obj.handle_p2p(addr, data) for EACH object     │
+│                 (NOT stored, NOT hashed, NOT gossiped)        │
+│                                                               │
+│  shared_objects: [YourProtocolObject, ...]                    │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 ## Core Abstractions
