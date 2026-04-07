@@ -10,10 +10,10 @@ storage, peer management, and concurrency.
 ┌─────────────────────────────────────────────────────┐
 │                   ChaincraftNode                    │
 │                                                     │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────────┐ │
-│  │ Listener │  │  Gossip  │  │ Merkelized Sync   │ │
-│  │ (thread) │  │ (thread) │  │     (thread)      │ │
-│  └────┬─────┘  └──────────┘  └───────────────────┘ │
+│  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │
+│  │ Listener │  │  Gossip  │  │ Merkelized Sync   │  │
+│  │ (thread) │  │ (thread) │  │     (thread)      │  │
+│  └────┬─────┘  └──────────┘  └───────────────────┘  │
 │       │                                             │
 │       ▼                                             │
 │  handle_message()                                   │
@@ -22,14 +22,14 @@ storage, peer management, and concurrency.
 │       │                                             │
 │       ├── _handle_shared_message()                  │
 │       │       │                                     │
-│       │       ├── obj.is_valid(msg) for ALL objects  │
+│       │       ├── obj.is_valid(msg) for ALL objects │
 │       │       │                                     │
 │       │       └── obj.add_message(msg) for EACH     │
 │       │                                             │
 │       └── _store_and_broadcast()                    │
 │               (store in DB, gossip to peers)        │
 │                                                     │
-│  shared_objects: [YourProtocolObject, ...]           │
+│  shared_objects: [YourProtocolObject, ...]          │
 └─────────────────────────────────────────────────────┘
 ```
 
