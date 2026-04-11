@@ -491,8 +491,20 @@ class ChaincraftNode:
         except json.JSONDecodeError:
             self.handle_invalid_message(addr)
         except Exception as e:
+            if self._is_expected_shutdown_error(e):
+                return
             print(f"❌ Error handling message: {str(e)}")
             self.handle_invalid_message(addr)
+
+    def _is_expected_shutdown_error(self, error: Exception) -> bool:
+        """
+        Return True for socket-close races during shutdown.
+        """
+        if self.is_running:
+            return False
+        if isinstance(error, OSError) and getattr(error, "errno", None) == 9:
+            return True
+        return "Bad file descriptor" in str(error)
 
     def _handle_shared_message(
         self,
