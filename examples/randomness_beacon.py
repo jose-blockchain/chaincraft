@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List, Optional, Set
 import json
 import hashlib
 import time
@@ -33,9 +33,17 @@ class RandomnessBeacon(MerkelizedObject):
     GENESIS_HASH = "0000000000000000000000000000000000000000000000000000000000000000"
 
     def __init__(self, coinbase_address=None, difficulty_bits=12):
-        self.blocks = []  # List of block headers
-        self.block_by_hash = {}  # Quick lookup by hash
-        self.ledger = {}  # Tracks blocks mined by each address
+        # Canonical chain blocks (genesis -> canonical tip).
+        self.blocks: List[Dict] = []
+        # All known blocks (canonical + side branches), keyed by hash.
+        self.block_by_hash: Dict[str, Dict] = {}
+        # Parent -> children map for fork tracking.
+        self.children_by_hash: Dict[str, Set[str]] = {}
+        # Current frontier tips across all known branches.
+        self.tip_hashes: Set[str] = set()
+        self.ledger: Dict[str, int] = (
+            {}
+        )  # Tracks canonical blocks mined by each address
         self.coinbase_address = coinbase_address  # This node's mining address
         # Convert difficulty_bits to difficulty value (2^difficulty_bits)
         self.difficulty = 2**difficulty_bits
@@ -59,6 +67,8 @@ class RandomnessBeacon(MerkelizedObject):
 
         self.blocks.append(genesis_block)
         self.block_by_hash[genesis_hash] = genesis_block
+        self.children_by_hash[genesis_hash] = set()
+        self.tip_hashes.add(genesis_hash)
 
     def is_valid(self, message: SharedMessage) -> bool:
         """Validate a new block message"""
@@ -89,32 +99,18 @@ class RandomnessBeacon(MerkelizedObject):
             if abs(block["timestamp"] - current_time) > 15:
                 return False
 
-            # Verify block height is valid (next in sequence or replacing last)
-            if (
-                block["blockHeight"] != len(self.blocks)
-                and block["blockHeight"] != len(self.blocks) - 1
-            ):
-                return False
-
-            # For replacement case, verify this is not replacing genesis
+            # Genesis is fixed in this example.
             if block["blockHeight"] == 0:
                 return False
 
-            # Get previous block based on height
-            if block["blockHeight"] == 0:  # Genesis block case
-                prev_block_hash = self.GENESIS_HASH
-            elif block["blockHeight"] > 0 and block["blockHeight"] <= len(self.blocks):
-                # Find previous block hash based on the height
-                prev_height = block["blockHeight"] - 1
-                if prev_height < len(self.blocks):
-                    prev_block_hash = self.blocks[prev_height]["blockHash"]
-                else:
-                    return False
-            else:
+            # Parent must already be known. This enables side-branch growth
+            # and multi-block reorg candidates.
+            prev_hash = block["prevBlockHash"]
+            if prev_hash not in self.block_by_hash:
                 return False
 
-            # Check prev block hash matches expected
-            if block["prevBlockHash"] != prev_block_hash:
+            expected_height = self.block_by_hash[prev_hash]["blockHeight"] + 1
+            if block["blockHeight"] != expected_height:
                 return False
 
             # Calculate block hash if not provided
@@ -134,8 +130,8 @@ class RandomnessBeacon(MerkelizedObject):
             print(f"Block validation error: {str(e)}")
             return False
 
-    def add_message(self, message: SharedMessage) -> None:
-        """Add a valid block to the chain"""
+    def add_message(self, message: SharedMessage, frontier_state=None) -> None:
+        """Add a valid block, track forks, and reorg canonical chain when needed."""
         block = message.data
 
         # Calculate and add block hash if not already provided
@@ -148,87 +144,77 @@ class RandomnessBeacon(MerkelizedObject):
 
         # Acquire lock for thread safety
         with self.block_change_lock:
-            # Check if we're replacing the last block
-            if block["blockHeight"] == len(self.blocks) - 1:
-                self._handle_replacement(block)
-            else:
-                # Add new block
-                self.blocks.append(block)
-                self.block_by_hash[block["blockHash"]] = block
+            parent_hash = block["prevBlockHash"]
+            block_hash = block["blockHash"]
 
-                # Update ledger for miner
-                addr = block["coinbaseAddress"]
-                self.ledger[addr] = self.ledger.get(addr, 0) + 1
+            # Track new block in the full fork graph.
+            self.block_by_hash[block_hash] = block
+            self.children_by_hash.setdefault(parent_hash, set()).add(block_hash)
+            self.children_by_hash.setdefault(block_hash, set())
+            self.tip_hashes.add(block_hash)
+            self.tip_hashes.discard(parent_hash)
 
-                # Signal that a new block was added
-                if block["blockHeight"] > 0:  # Don't signal for genesis
-                    self.block_replacement_event.set()
+            current_tip_hash = self.blocks[-1]["blockHash"]
+            if not self._is_better_candidate(block_hash, current_tip_hash):
+                return
 
-    def _handle_replacement(self, new_block):
-        """Handle potential replacement of the last block"""
-        current_last = self.blocks[-1]
+            new_chain = self._build_chain_to_tip(block_hash)
+            if not new_chain:
+                return
 
-        # Skip if trying to replace genesis
-        if current_last["blockHeight"] == 0:
-            return
-
-        # Only replace if both blocks are at exactly the same height
-        if current_last["blockHeight"] != new_block["blockHeight"]:
-            print(
-                f"Height mismatch: current={current_last['blockHeight']}, new={new_block['blockHeight']} - not replacing"
-            )
-            return
-
-        # Only replace if both blocks have the same previous block hash
-        if current_last["prevBlockHash"] != new_block["prevBlockHash"]:
-            cur = current_last["prevBlockHash"][:8]
-            new = new_block["prevBlockHash"][:8]
-            print(
-                f"Previous hash mismatch: current={cur}..., new={new}... - not replacing"
-            )
-            return
-
-        # Compare lexicographical ordering of block hashes
-        # Lower hash value wins (lexicographically smaller)
-        current_hash = current_last["blockHash"]
-        new_hash = new_block["blockHash"]
-
-        is_own_block = current_last["coinbaseAddress"] == self.coinbase_address
-
-        print(f"Collision detected at height {current_last['blockHeight']}")
-        print(f"Current hash: {current_hash}")
-        print(f"New hash: {new_hash}")
-        print(f"Common prevBlockHash: {current_last['prevBlockHash'][:8]}...")
-        print(f"Is new < current? {new_hash < current_hash}")
-        print(f"Is replacing our own block? {is_own_block}")
-
-        if new_hash < current_hash:  # Lower lexicographical hash value wins
-            print("New block is better - replacing current block")
-            # Decrease ledger for old miner
-            old_addr = current_last["coinbaseAddress"]
-            if old_addr in self.ledger and self.ledger[old_addr] > 0:
-                self.ledger[old_addr] -= 1
-
-            # Remove old block from hash map
-            old_hash = current_last["blockHash"]
-            if old_hash in self.block_by_hash:
-                del self.block_by_hash[old_hash]
-
-            # Remove old block from chain
-            self.blocks.pop()
-
-            # Add new block
-            self.blocks.append(new_block)
-            self.block_by_hash[new_block["blockHash"]] = new_block
-
-            # Update ledger for new miner
-            new_addr = new_block["coinbaseAddress"]
-            self.ledger[new_addr] = self.ledger.get(new_addr, 0) + 1
-
-            # Signal that a block replacement occurred
+            old_tip_hash = current_tip_hash
+            self.blocks = new_chain
+            self._rebuild_ledger_from_canonical()
             self.block_replacement_event.set()
-        else:
-            print("Current block is better - keeping it")
+
+            if old_tip_hash != block_hash:
+                old_short = old_tip_hash[:8]
+                new_short = block_hash[:8]
+                print(
+                    "Canonical chain updated: "
+                    f"{old_short}... -> {new_short}... (height {len(self.blocks)-1})"
+                )
+
+    def _is_better_candidate(self, candidate_hash: str, current_hash: str) -> bool:
+        candidate = self.block_by_hash.get(candidate_hash)
+        current = self.block_by_hash.get(current_hash)
+        if not candidate or not current:
+            return False
+
+        candidate_height = int(candidate["blockHeight"])
+        current_height = int(current["blockHeight"])
+        if candidate_height > current_height:
+            return True
+        if candidate_height < current_height:
+            return False
+
+        # Tie-break at same height: lower hash wins.
+        return candidate_hash < current_hash
+
+    def _build_chain_to_tip(self, tip_hash: str) -> List[Dict]:
+        chain_reversed: List[Dict] = []
+        cursor = self.block_by_hash.get(tip_hash)
+        while cursor is not None:
+            chain_reversed.append(cursor)
+            if cursor["blockHeight"] == 0:
+                break
+            parent_hash = cursor["prevBlockHash"]
+            cursor = self.block_by_hash.get(parent_hash)
+
+        if not chain_reversed or chain_reversed[-1]["blockHeight"] != 0:
+            return []
+        chain = list(reversed(chain_reversed))
+        for i in range(1, len(chain)):
+            expected_height = chain[i - 1]["blockHeight"] + 1
+            if chain[i]["blockHeight"] != expected_height:
+                return []
+        return chain
+
+    def _rebuild_ledger_from_canonical(self) -> None:
+        self.ledger = {}
+        for block in self.blocks[1:]:
+            addr = block["coinbaseAddress"]
+            self.ledger[addr] = self.ledger.get(addr, 0) + 1
 
     def wait_for_block_change(self, timeout=None):
         """Wait for a block replacement event"""
@@ -256,6 +242,15 @@ class RandomnessBeacon(MerkelizedObject):
             return self.GENESIS_HASH
         return self.blocks[-1]["blockHash"]
 
+    def get_state_digests(self) -> List[str]:
+        """
+        SPECS v2 frontier: canonical digest window + all known branch tips.
+        This allows downstream objects to detect multi-block reorgs.
+        """
+        canonical_window = [block["blockHash"] for block in self.blocks[-8:]]
+        extras = sorted(h for h in self.tip_hashes if h not in canonical_window)
+        return canonical_window + extras
+
     def has_digest(self, hash_digest: str) -> bool:
         """Check if we have a block with the given hash"""
         return hash_digest in self.block_by_hash
@@ -282,6 +277,7 @@ class RandomnessBeacon(MerkelizedObject):
                 start_idx = i
                 break
 
+        # If digest is known but not on canonical chain, return no delta.
         if start_idx is None:
             return []
 

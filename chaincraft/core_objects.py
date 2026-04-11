@@ -324,6 +324,15 @@ class MerkelizedObject(CoreSharedObject):
             return ""
         return self._digests[-1]
 
+    def get_state_digests(self) -> List[str]:
+        """
+        Return a short digest frontier window so downstream objects can
+        detect multi-block canonical rewrites.
+        """
+        if not self._digests:
+            return []
+        return self._digests[-8:]
+
     def has_digest(self, hash_digest: str) -> bool:
         return hash_digest in self._digest_index
 
@@ -492,6 +501,9 @@ class DAGObject(MerkelizedObject):
 
     def get_head_digests(self) -> List[str]:
         return list(self._head_digests)
+
+    def get_state_digests(self) -> List[str]:
+        return self.get_head_digests()
 
     def has_digest(self, hash_digest: str) -> bool:
         return (

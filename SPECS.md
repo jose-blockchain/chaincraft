@@ -1,6 +1,6 @@
-# Chaincraft Protocol Implementation Specification v1
+# Chaincraft Protocol Implementation Specification v2
 
-This document describes how to implement a protocol using Chaincraft.
+This document describes SPECS v2 for implementing a protocol using Chaincraft.
 You write protocol logic only; Chaincraft handles networking, gossip,
 storage, peer management, and concurrency.
 
@@ -21,7 +21,10 @@ storage, peer management, and concurrency.
 │       ├── Gossip path: SharedMessage                          │
 │       │    ├── _handle_shared_message()                       │
 │       │    │    ├── obj.is_valid(msg) for ALL objects         │
-│       │    │    └── obj.add_message(msg) for EACH             │
+│       │    │    └── linear pipeline per object (v2):          │
+│       │    │         obj.add_message(msg, frontier_state?)    │
+│       │    │         -> Optional[StateMemento]                │
+│       │    │         -> passed to next SharedObject           │
 │       │    └── _store_and_broadcast()                         │
 │       │         (store in DB, hash+dedupe, gossip to peers)   │
 │       │                                                       │
@@ -56,10 +59,17 @@ one `SharedObject` subclass.
 
 ```python
 from chaincraft.shared_object import SharedObject
+from chaincraft.state_memento import StateMemento
 
 class MyProtocolObject(SharedObject):
     def is_valid(self, message: SharedMessage) -> bool: ...
-    def add_message(self, message: SharedMessage) -> None: ...
+    def add_message(
+        self,
+        message: SharedMessage,
+        frontier_state: Optional[StateMemento] = None,
+    ) -> Optional[StateMemento]: ...
+    def emit_state_memento(self) -> StateMemento: ...
+    def get_state_digests(self) -> List[str]: ...
     def is_merkelized(self) -> bool: ...
     def get_latest_digest(self) -> str: ...
     def has_digest(self, hash_digest: str) -> bool: ...
@@ -86,12 +96,15 @@ When a peer sends a message to this node:
    - **Validation phase**: calls `obj.is_valid(msg)` on **every**
      SharedObject in the node. If **any** returns `False`, the message
      is rejected and the sender receives a strike (ban after 3 strikes).
-   - **Processing phase**: only if **all** objects validated, calls
-     `obj.add_message(msg)` **sequentially** on each SharedObject in
-     registration order. Each object gets one shot to update its
-     internal state for this message.
+   - **Processing phase**: only if **all** objects validated, process
+     objects **sequentially** in registration order while passing an
+     optional `frontier_state` memento downstream.
    - Then stores and broadcasts (gossips) the message to all peers.
 5. Your `add_message()` runs protocol state transitions.
+
+In v2, `frontier_state` carries canonical/frontier digests between
+SharedObjects so downstream objects can detect reorgs or canonical
+rewrites (including multi-block rewrites) and catch up.
 
 This two-phase design supports nodes with **multiple SharedObjects**
 that represent different facets of the same protocol. A typical example
@@ -112,7 +125,8 @@ When this node creates a message locally:
 
 1. `node.create_shared_message(data)` wraps data in a SharedMessage.
 2. Calls `obj.is_valid(msg)` on all SharedObjects.
-3. If all valid, calls `obj.add_message(msg)` on each.
+3. If all valid, processes shared objects in the same linear pipeline
+   (including optional `frontier_state` propagation).
 4. Broadcasts the message to all peers.
 5. Stores it in the node's DB (deduplicated by hash).
 
@@ -231,13 +245,14 @@ Focus on two methods:
 
 - **`is_valid(msg)`**: Return `True` if this message is well-formed and
   the state transition it represents is legal. This is your validator.
-- **`add_message(msg)`**: The single public entry point from the node.
-  Apply the state transition here. Dispatch internally to private
-  handlers based on message type or content — do not add more public
-  handler methods. For example:
+- **`add_message(msg, frontier_state=None)`**: The single public entry
+  point from the node. Apply the state transition here. Dispatch
+  internally to private handlers based on message type or content — do
+  not add more public handler methods. Legacy objects may still use
+  `add_message(msg)` without `frontier_state`. For example:
 
 ```python
-def add_message(self, message):
+def add_message(self, message, frontier_state=None):
     data = message.data
     if data["blockHeight"] == len(self.blocks) - 1:
         self._handle_replacement(data)
@@ -277,8 +292,9 @@ rejects the message, a `SharedObjectException` is raised.
 The node provides **two public entry points** into your SharedObject,
 both called from the listener thread:
 
-- **`add_message(msg)`** — for gossip-path messages (stored, deduplicated,
-  broadcast). Dispatch to `_private_methods()` internally.
+- **`add_message(msg, frontier_state=None)`** — for gossip-path messages
+  (stored, deduplicated, broadcast). Dispatch to `_private_methods()`
+  internally.
 - **`handle_p2p(addr, data)`** — for ephemeral point-to-point messages
   (not stored, not gossiped). Dispatch to `_private_methods()` internally.
 
@@ -335,7 +351,7 @@ class ChatroomObject(SharedObject):
         ...
         return True
 
-    def add_message(self, message):
+    def add_message(self, message, frontier_state=None):
         # Apply: create room, accept member, store post
         # Optionally notify UI via callback
         if self.on_message_added:

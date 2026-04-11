@@ -162,7 +162,7 @@ class ChatroomObject(CoreSharedObject):
 
         return True
 
-    def add_message(self, message: SharedMessage) -> None:
+    def add_message(self, message: SharedMessage, frontier_state=None) -> None:
         data = message.data
         msg_type = data["message_type"]
         cname = data["chatroom_name"]
