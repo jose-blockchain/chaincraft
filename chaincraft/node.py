@@ -1,6 +1,7 @@
 # chaincraft.py
 
 import json
+import inspect
 import random
 import socket
 import threading
@@ -11,6 +12,7 @@ import dbm.ndbm
 import os
 from typing import List, Tuple, Dict, Union, Optional, Any, Set
 
+from .state_memento import StateMemento
 from .shared_object import SharedObject, SharedObjectException
 from .shared_message import SharedMessage
 from .index_helper import IndexHelper
@@ -489,8 +491,20 @@ class ChaincraftNode:
         except json.JSONDecodeError:
             self.handle_invalid_message(addr)
         except Exception as e:
+            if self._is_expected_shutdown_error(e):
+                return
             print(f"❌ Error handling message: {str(e)}")
             self.handle_invalid_message(addr)
+
+    def _is_expected_shutdown_error(self, error: Exception) -> bool:
+        """
+        Return True for socket-close races during shutdown.
+        """
+        if self.is_running:
+            return False
+        if isinstance(error, OSError) and getattr(error, "errno", None) == 9:
+            return True
+        return "Bad file descriptor" in str(error)
 
     def _handle_shared_message(
         self,
@@ -516,14 +530,38 @@ class ChaincraftNode:
 
     def _process_shared_objects(self, shared_message: SharedMessage) -> None:
         """
-        Add the shared message to each SharedObject.
+        Add the shared message to each SharedObject in a linear pipeline.
+        Each object can emit a frontier memento that is passed to the next object.
         """
+        frontier_state: Optional[StateMemento] = None
         for obj in self.shared_objects:
-            obj.add_message(shared_message)
+            emitted_state: Optional[StateMemento]
+            if self._add_message_supports_frontier_state(obj):
+                emitted_state = obj.add_message(
+                    shared_message, frontier_state=frontier_state
+                )
+            else:
+                obj.add_message(shared_message)
+                emitted_state = None
+
+            if emitted_state is None and hasattr(obj, "emit_state_memento"):
+                emitted_state = obj.emit_state_memento()
+
+            if emitted_state is not None:
+                frontier_state = emitted_state
+
             if self.debug:
                 print(
                     f"Node {self.port}: Added message to shared object {type(obj).__name__}"
                 )
+
+    def _add_message_supports_frontier_state(self, obj: SharedObject) -> bool:
+        """
+        Detect whether a shared object accepts the optional frontier_state argument.
+        """
+        signature = inspect.signature(obj.add_message)
+        parameter_names = list(signature.parameters.keys())
+        return "frontier_state" in parameter_names
 
     def _store_and_broadcast(self, message_hash: str, message_str: str) -> None:
         """
@@ -722,12 +760,7 @@ class ChaincraftNode:
         new_object: SharedMessage = SharedMessage(data=data)
         if self.shared_objects:
             if all(obj.is_valid(new_object) for obj in self.shared_objects):
-                for obj in self.shared_objects:
-                    obj.add_message(new_object)
-                    if self.debug:
-                        print(
-                            f"Node {self.port}: Added message to shared object {type(obj).__name__}"
-                        )
+                self._process_shared_objects(new_object)
             else:
                 raise SharedObjectException("Invalid message for shared objects")
 

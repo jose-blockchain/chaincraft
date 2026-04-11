@@ -5,7 +5,7 @@ This package provides the fundamental components needed to create distributed ne
 implement consensus mechanisms, and prototype blockchain applications.
 """
 
-__version__ = "0.4.7"
+__version__ = "0.5.0"
 __author__ = "Chaincraft Contributors"
 __email__ = "chaincraft@example.com"
 
@@ -13,6 +13,7 @@ from .node import ChaincraftNode
 from .shared_object import SharedObject, SharedObjectException
 from .shared_message import SharedMessage
 from .index_helper import IndexHelper
+from .state_memento import StateMemento, normalize_state_memento
 from .core_objects import (
     CoreSharedObject,
     NonMerkelizedObject,
@@ -35,6 +36,8 @@ __all__ = [
     "SharedObjectException",
     "SharedMessage",
     "IndexHelper",
+    "StateMemento",
+    "normalize_state_memento",
     "CoreSharedObject",
     "NonMerkelizedObject",
     "MerkelizedObject",

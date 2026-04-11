@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from typing import Optional
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 if "chaincraft" in sys.modules:
@@ -21,6 +22,7 @@ from chaincraft.core_objects import (
     UTXOLedger,
 )
 from chaincraft.node import ChaincraftNode
+from chaincraft.state_memento import StateMemento, normalize_state_memento
 from chaincraft.shared_message import SharedMessage
 
 
@@ -572,6 +574,86 @@ class TestAdditionalCacheCases(unittest.TestCase):
         docs.add_message(SharedMessage(data={"doc_id": "missing", "action": "delete"}))
         self.assertEqual(len(docs.documents), 0)
         self.assertEqual(len(docs.cache), 0)
+
+
+class _FrontierSourceObject(NonMerkelizedObject):
+    def is_valid(self, message: SharedMessage) -> bool:
+        return isinstance(message.data, dict)
+
+    def add_message(
+        self,
+        message: SharedMessage,
+        frontier_state: Optional[StateMemento] = None,
+    ) -> StateMemento:
+        payload = message.data
+        canonical = payload.get("canonical", "")
+        frontier = payload.get("frontier", [])
+        return normalize_state_memento(canonical, frontier)
+
+
+class _FrontierObserverObject(NonMerkelizedObject):
+    def __init__(self):
+        super().__init__()
+        self.seen_frontiers = []
+        self.reorg_flags = []
+        self._last_frontier = None
+
+    def is_valid(self, message: SharedMessage) -> bool:
+        return isinstance(message.data, dict)
+
+    def add_message(
+        self,
+        message: SharedMessage,
+        frontier_state: Optional[StateMemento] = None,
+    ) -> None:
+        if frontier_state is None:
+            return
+
+        self.seen_frontiers.append(frontier_state)
+        self.reorg_flags.append(
+            frontier_state.indicates_reorg_against(self._last_frontier)
+        )
+        self._last_frontier = frontier_state
+
+
+class TestPipelineStateMementos(unittest.TestCase):
+    def test_node_passes_frontier_memento_between_shared_objects(self):
+        source = _FrontierSourceObject()
+        observer = _FrontierObserverObject()
+        node = ChaincraftNode(persistent=False, shared_objects=[source, observer])
+        node.create_shared_message(
+            {
+                "canonical": "d2",
+                "frontier": ["d0", "d1", "d2"],
+            }
+        )
+        self.assertEqual(len(observer.seen_frontiers), 1)
+        self.assertEqual(observer.seen_frontiers[0].canonical_digest, "d2")
+        self.assertEqual(
+            observer.seen_frontiers[0].frontier_digests, ("d0", "d1", "d2")
+        )
+
+    def test_reorg_detection_works_for_multi_block_rewrite(self):
+        source = _FrontierSourceObject()
+        observer = _FrontierObserverObject()
+        node = ChaincraftNode(persistent=False, shared_objects=[source, observer])
+
+        node.create_shared_message(
+            {
+                "canonical": "c3",
+                "frontier": ["c1", "c2", "c3"],
+            }
+        )
+        node.create_shared_message(
+            {
+                "canonical": "f4",
+                "frontier": ["f2", "f3", "f4"],
+            }
+        )
+
+        self.assertEqual(len(observer.reorg_flags), 2)
+        self.assertEqual(observer.reorg_flags[0], False)
+        self.assertEqual(observer.reorg_flags[1], True)
 
 
 if __name__ == "__main__":

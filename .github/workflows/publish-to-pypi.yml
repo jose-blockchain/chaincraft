@@ -37,7 +37,7 @@ jobs:
     
     - name: Test with pytest
       run: |
-        python -m pytest -q tests/test_core_objects.py tests/test_message_types.py
+        python -m pytest -q tests
   build:
     needs: test
     runs-on: ubuntu-latest

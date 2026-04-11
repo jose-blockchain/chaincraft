@@ -75,5 +75,5 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        python -m pytest -q tests/test_core_objects.py tests/test_message_types.py
+        python -m pytest -q tests
       shell: /usr/bin/bash -e {0}

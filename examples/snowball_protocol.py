@@ -214,7 +214,7 @@ class SnowballObject(CoreSharedObject):
     def is_valid(self, message: SharedMessage) -> bool:
         return False
 
-    def add_message(self, message: SharedMessage) -> None:
+    def add_message(self, message: SharedMessage, frontier_state=None) -> None:
         pass
 
 

@@ -10,7 +10,7 @@ from setuptools import setup
 # For backward compatibility with older pip/setuptools versions
 setup(
     name="chaincraft",
-    version="0.4.7",
+    version="0.5.0",
     packages=["chaincraft", "examples"],
     package_data={"": ["*.md", "*.txt"]},
     include_package_data=True,

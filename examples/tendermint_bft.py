@@ -304,7 +304,7 @@ class TendermintBFT(MerkelizedObject):
         # In full implementation, we would verify signatures from 2/3+ of validators
         return True
 
-    def add_message(self, message: SharedMessage) -> None:
+    def add_message(self, message: SharedMessage, frontier_state=None) -> None:
         """Process a consensus message"""
         data = message.data
         message_type = data.get("message_type", "")
