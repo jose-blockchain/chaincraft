@@ -24,7 +24,13 @@ FEE_POOL_ACCOUNT = "__fees__"
 
 @dataclass(frozen=True)
 class Transaction:
-    """A signed value transfer in the account model."""
+    """A signed value transfer in the account model.
+
+    ``data`` is an opaque byte payload (notes, hashes, app messages). It is
+    stored and forwarded by the ledger but **not executed** — smart contracts
+    are out of scope for 0.6.0. Payload size may incur a configurable fee via
+    :mod:`chaincraft.fees.payload`.
+    """
 
     sender: str
     recipient: str
@@ -32,6 +38,7 @@ class Transaction:
     fee: int
     nonce: int = 0
     asset: str = "native"
+    data: bytes = b""
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     @property
@@ -44,6 +51,7 @@ class Transaction:
                 "fee": self.fee,
                 "nonce": self.nonce,
                 "asset": self.asset,
+                "data": self.data.hex(),
             }
         )
 

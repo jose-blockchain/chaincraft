@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import Any, List, Optional, Sequence
 
 from ..ledger.base import FeeCharge
+from .payload import NoPayloadPricing, PayloadPricing, _payload_bytes
 
 
 @dataclass
@@ -36,6 +37,8 @@ class BlockContext:
     parent_tx_count: int = 0
     #: Uniform clearing fee chosen during selection (set by some policies).
     clearing_fee: Optional[int] = None
+    #: Maximum raw payload bytes allowed per transaction (``None`` = unlimited).
+    max_payload_bytes: Optional[int] = None
     #: Maximum relative base-fee change per block (Ethereum uses 8 -> 12.5%).
     base_fee_max_change_denominator: int = 8
 
@@ -44,6 +47,27 @@ class FeePolicy(ABC):
     """Interface implemented by every fee market policy."""
 
     name: str = "abstract"
+
+    def __init__(
+        self,
+        *,
+        payload_pricing: Optional[PayloadPricing] = None,
+        **kwargs: Any,
+    ) -> None:
+        self.payload_pricing = payload_pricing or NoPayloadPricing()
+
+    def payload_cost(self, tx: Any) -> int:
+        """Minimum fee attributable to the transaction's data payload."""
+        return self.payload_pricing.cost(tx)
+
+    def _payload_within_limit(self, tx: Any, ctx: BlockContext) -> bool:
+        if ctx.max_payload_bytes is None:
+            return True
+        return len(_payload_bytes(tx)) <= ctx.max_payload_bytes
+
+    def minimum_fee(self, tx: Any, ctx: BlockContext) -> int:
+        """Floor fee from payload pricing (subclasses add policy-specific mins)."""
+        return self.payload_cost(tx)
 
     @abstractmethod
     def is_valid_fee(self, tx: Any, ctx: BlockContext) -> bool:

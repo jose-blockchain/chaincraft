@@ -365,7 +365,8 @@ config produces a working chain; each part is swappable by name.
 |---|---|---|---|
 | Ledger model | `chaincraft.ledger` | `get_ledger_model` | `balance`, `utxo` |
 | Fee policy | `chaincraft.fees` | `get_fee_policy` | `highest_first`, `median`, `eip1559` |
-| Consensus engine | `chaincraft.consensus` | `get_consensus_engine` | `relay`, `avalanche`, `tendermint`, `pow`, … |
+| Payload pricing | `chaincraft.fees.payload` | `get_payload_pricing` | `none`, `per_byte`, `per_compressed_byte`, `flat`, `absolute`, `total_bytes` |
+| Consensus engine | `chaincraft.consensus` | `get_consensus_engine` | `relay`, `avalanche`, `tendermint`, `pow`, `beacon`, … |
 | Mempool policy | `chaincraft.mempool` | (dataclass `MempoolPolicy`) | — |
 
 ```python
@@ -379,15 +380,42 @@ config = BlockchainConfig(
     max_transactions_per_block=100,
     target_transactions_per_block=50,
     mempool_policy=MempoolPolicy(max_size=10_000, min_fee=1, enable_rbf=True),
+    payload_pricing="per_byte",      # charge for opaque tx data (not smart contracts)
+    payload_kwargs={"rate": 1},
+    max_payload_bytes=4096,
     genesis_allocations={"alice": 1_000},
 )
 chain = build_blockchain(config)     # validates, then assembles
-chain.submit(tx)                     # admission via fee + mempool policy
+
+from chaincraft.ledger import Transaction
+tx = Transaction(
+    sender="alice", recipient="bob", amount=10, fee=20, nonce=0,
+    data=b"hello",                   # opaque payload; priced by payload_pricing
+)
+chain.submit(tx)                     # admission via fee + payload + mempool policy
 block = chain.produce_block(miner="alice")
 ```
 
 Swapping the ledger or fee market is a one-line change to the config; nothing
 else in your code moves.
+
+**Balance ledger and data payloads.** 0.6.0 supports full cryptocurrency
+blockchains on the account/balance model (and UTXO for structural fees). Each
+``Transaction`` may carry an opaque ``data`` byte string (notes, hashes, app
+messages). The ledger stores and forwards it but does **not** execute it —
+smart contracts are not supported yet. How much that data costs is configured
+independently via ``payload_pricing``:
+
+- ``none`` — payload is free (default).
+- ``per_byte`` — ``rate × len(data)`` native units.
+- ``per_compressed_byte`` — ``rate × len(zlib.compress(data))``.
+- ``flat`` — fixed fee when ``data`` is non-empty.
+- ``absolute`` — fixed fee on every transaction regardless of payload.
+- ``total_bytes`` — ``rate ×`` full serialized transaction size.
+
+Set ``max_payload_bytes`` on ``BlockchainConfig`` to reject oversized attachments
+at admission. Fee policies add the payload minimum to their own rules (e.g.
+EIP-1559 requires ``fee >= base_fee + payload_cost``).
 
 ### Configuration Validation
 
@@ -539,6 +567,8 @@ learners can read one self-contained file:
 - Core `pow`: `ProofOfWorkConsensus` — longest-valid-chain Nakamoto consensus
   built on the reusable `ForkAwareChain` helper (heaviest-chain fork choice,
   deterministic tie-break, reorg deltas) with confirmation-based finality.
+- Core `pow`: `RandomnessBeaconConsensus` — PoW chain whose buried tip hash is
+  verifiable randomness (`random_float` / `random_int`); registered as `"beacon"`.
 - Toys in `examples/`: `Slush`, `Snowflake`, `Snowball` (binary single-decree
   Avalanche family), the networked `tendermint_bft.py` walkthrough, and the
   mining-loop `blockchain.py` / `randomness_beacon.py` PoW demos.
@@ -560,6 +590,7 @@ any longest- or heaviest-chain protocol can build on.
 | Avalanche (full) | Core consensus engine (`gossip`) | `chaincraft/consensus/gossip/avalanche.py` |
 | Tendermint (full) | Core consensus engine (`bft`) | `chaincraft/consensus/bft/tendermint.py` |
 | Proof-of-Work (full) | Core consensus engine (`pow`) | `chaincraft/consensus/pow/proof_of_work.py` |
+| Randomness Beacon (full) | Core consensus engine (`pow`) | `chaincraft/consensus/pow/beacon.py` |
 
 ### Gossip-path example (Chatroom)
 

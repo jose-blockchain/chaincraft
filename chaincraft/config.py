@@ -20,6 +20,7 @@ from typing import Any, List, Mapping, Optional
 
 from .fees import FEE_POLICIES, BlockContext, get_fee_policy
 from .fees.base import FeePolicy
+from .fees.payload import PAYLOAD_PRICINGS, get_payload_pricing
 from .ledger import LEDGER_MODELS, get_ledger_model
 from .ledger.base import LedgerModel, LedgerState
 from .mempool import MempoolPolicy, TransactionPool
@@ -61,6 +62,11 @@ class BlockchainConfig:
     ledger_kwargs: Mapping[str, Any] = field(default_factory=dict)
     fee_kwargs: Mapping[str, Any] = field(default_factory=dict)
     mempool_policy: Optional[MempoolPolicy] = None
+    #: How to price transaction ``data`` payloads (see ``chaincraft.fees.payload``).
+    payload_pricing: str = "none"
+    payload_kwargs: Mapping[str, Any] = field(default_factory=dict)
+    #: Reject transactions whose ``data`` exceeds this many bytes (``None`` = unlimited).
+    max_payload_bytes: Optional[int] = None
 
     def validate(self) -> "BlockchainConfig":
         """Reject impossible or self-contradictory configurations.
@@ -76,6 +82,16 @@ class BlockchainConfig:
             raise ConfigError(
                 f"unknown fee policy {self.fee_policy!r}; "
                 f"available: {sorted(FEE_POLICIES)}"
+            )
+        if self.payload_pricing not in PAYLOAD_PRICINGS:
+            raise ConfigError(
+                f"unknown payload pricing {self.payload_pricing!r}; "
+                f"available: {sorted(PAYLOAD_PRICINGS)}"
+            )
+        if self.max_payload_bytes is not None and self.max_payload_bytes < 1:
+            raise ConfigError(
+                "max_payload_bytes must be >= 1 when set, got "
+                f"{self.max_payload_bytes}"
             )
         if self.max_transactions_per_block < 1:
             raise ConfigError(
@@ -223,6 +239,7 @@ class Blockchain:
             base_fee=self.base_fee,
             target_transactions=self.config.target_transactions_per_block,
             parent_tx_count=self._last_block_tx_count,
+            max_payload_bytes=self.config.max_payload_bytes,
         )
 
     def produce_block(self, miner: Optional[str] = None) -> Block:
@@ -278,7 +295,14 @@ class BlockchainBuilder:
     def build(self) -> Blockchain:
         self.config.validate()
         ledger = get_ledger_model(self.config.ledger_model, **self.config.ledger_kwargs)
-        fee_policy = get_fee_policy(self.config.fee_policy, **self.config.fee_kwargs)
+        pricing = get_payload_pricing(
+            self.config.payload_pricing, **self.config.payload_kwargs
+        )
+        fee_policy = get_fee_policy(
+            self.config.fee_policy,
+            payload_pricing=pricing,
+            **self.config.fee_kwargs,
+        )
         state = ledger.genesis_state(self.config.genesis_allocations)
         return Blockchain(ledger, fee_policy, state, self.config)
 

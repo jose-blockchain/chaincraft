@@ -18,18 +18,24 @@ from .base import BlockContext, FeePolicy, _fee_of
 class EIP1559(FeePolicy):
     name = "eip1559"
 
-    def __init__(self, *, min_base_fee: int = 1):
+    def __init__(self, *, min_base_fee: int = 1, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
         if min_base_fee < 0:
             raise ValueError(f"min_base_fee must be >= 0, got {min_base_fee}")
         self.min_base_fee = min_base_fee
 
+    def minimum_fee(self, tx: Any, ctx: BlockContext) -> int:
+        return ctx.base_fee + self.payload_cost(tx)
+
     def is_valid_fee(self, tx: Any, ctx: BlockContext) -> bool:
-        return _fee_of(tx) >= ctx.base_fee
+        if not self._payload_within_limit(tx, ctx):
+            return False
+        return _fee_of(tx) >= self.minimum_fee(tx, ctx)
 
     def select_for_block(
         self, candidates: Sequence[Any], ctx: BlockContext
     ) -> List[Any]:
-        eligible = [tx for tx in candidates if _fee_of(tx) >= ctx.base_fee]
+        eligible = [tx for tx in candidates if self.is_valid_fee(tx, ctx)]
         # Order by effective tip (max fee minus base fee), highest first.
         eligible.sort(key=lambda tx: _fee_of(tx) - ctx.base_fee, reverse=True)
         return eligible[: ctx.max_transactions]

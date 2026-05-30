@@ -29,11 +29,15 @@ class UTXOOutput:
 
 @dataclass(frozen=True)
 class UTXOTransaction:
-    """Spends ``inputs`` (utxo ids) and creates ``outputs``."""
+    """Spends ``inputs`` (utxo ids) and creates ``outputs``.
+
+    ``data`` is an opaque attachment (not executed). Fee policies may price it.
+    """
 
     inputs: Tuple[str, ...]
     outputs: Tuple[UTXOOutput, ...]
     fee: int
+    data: bytes = b""
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     @property
@@ -43,6 +47,7 @@ class UTXOTransaction:
                 "inputs": list(self.inputs),
                 "outputs": [[o.owner, o.amount] for o in self.outputs],
                 "fee": self.fee,
+                "data": self.data.hex(),
             }
         )
 
