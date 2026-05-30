@@ -19,6 +19,7 @@ from .base import (
     CATEGORY_POW,
     ConsensusEngine,
     ConsensusError,
+    UnstableConsensusWarning,
     message_data,
 )
 from .registry import (
@@ -46,6 +47,7 @@ __all__ = [
     "CATEGORY_DAG",
     "ConsensusEngine",
     "ConsensusError",
+    "UnstableConsensusWarning",
     "message_data",
     "ConsensusRegistry",
     "default_registry",

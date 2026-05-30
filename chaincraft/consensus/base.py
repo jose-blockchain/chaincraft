@@ -35,6 +35,16 @@ class ConsensusError(Exception):
     """Raised for consensus configuration or registration errors."""
 
 
+class UnstableConsensusWarning(UserWarning):
+    """Warns about engine parameters that are allowed but reduce guarantees.
+
+    Non-fatal counterpart to :class:`ConsensusError`: the engine will run, but
+    the chosen parameters weaken its safety/liveness guarantees (e.g. an
+    Avalanche quorum at or below half, or a BFT validator set too small to
+    tolerate any Byzantine fault).
+    """
+
+
 class ConsensusEngine(ABC):
     """Base class every consensus engine implements."""
 

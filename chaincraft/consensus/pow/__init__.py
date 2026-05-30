@@ -1,8 +1,9 @@
 """Proof-of-work consensus family.
 
-Examples: SHA-256 proof-of-work longest/heaviest chain, and verifiable-delay
-(VDF) linear-work variants. Migration of the example PoW chain and randomness
-beacon is tracked separately.
+Core: the longest-valid-chain :class:`ProofOfWorkConsensus`, built on the
+reusable :class:`ForkAwareChain` fork-choice helper (shared by the example PoW
+blockchain and randomness beacon). The networked mining-loop teaching versions
+remain in ``examples/``.
 """
 
 from ..base import CATEGORY_POW, ConsensusEngine
@@ -14,4 +15,12 @@ class PoWConsensus(ConsensusEngine):
     category = CATEGORY_POW
 
 
-__all__ = ["PoWConsensus"]
+from .chain import ForkAwareChain, ForkChoiceResult  # noqa: E402
+from .proof_of_work import ProofOfWorkConsensus  # noqa: E402  (registers engine)
+
+__all__ = [
+    "PoWConsensus",
+    "ForkAwareChain",
+    "ForkChoiceResult",
+    "ProofOfWorkConsensus",
+]

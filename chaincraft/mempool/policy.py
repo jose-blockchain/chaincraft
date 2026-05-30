@@ -63,6 +63,25 @@ class MempoolPolicy:
     #: Minimum absolute fee increase required to replace via RBF.
     rbf_min_increase: int = 1
 
+    def __post_init__(self) -> None:
+        if self.max_size < 1:
+            raise ValueError(f"max_size must be >= 1, got {self.max_size}")
+        if self.min_fee < 0:
+            raise ValueError(f"min_fee must be >= 0, got {self.min_fee}")
+        if self.max_per_sender is not None and self.max_per_sender < 1:
+            raise ValueError(
+                f"max_per_sender must be >= 1 when set, got {self.max_per_sender}"
+            )
+        if self.ttl_seconds is not None and self.ttl_seconds <= 0:
+            raise ValueError(
+                f"ttl_seconds must be > 0 when set, got {self.ttl_seconds}"
+            )
+        if self.enable_rbf and self.rbf_min_increase < 1:
+            raise ValueError(
+                "rbf_min_increase must be >= 1 when RBF is enabled, got "
+                f"{self.rbf_min_increase}"
+            )
+
 
 @dataclass
 class MempoolEntry:

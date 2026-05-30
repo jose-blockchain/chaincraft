@@ -365,7 +365,7 @@ config produces a working chain; each part is swappable by name.
 |---|---|---|---|
 | Ledger model | `chaincraft.ledger` | `get_ledger_model` | `balance`, `utxo` |
 | Fee policy | `chaincraft.fees` | `get_fee_policy` | `highest_first`, `median`, `eip1559` |
-| Consensus engine | `chaincraft.consensus` | `get_consensus_engine` | `relay`, `avalanche`, `tendermint`, … |
+| Consensus engine | `chaincraft.consensus` | `get_consensus_engine` | `relay`, `avalanche`, `tendermint`, `pow`, … |
 | Mempool policy | `chaincraft.mempool` | (dataclass `MempoolPolicy`) | — |
 
 ```python
@@ -391,9 +391,12 @@ else in your code moves.
 
 ### Configuration Validation
 
-The assembly layer is permissive about *which* parts you combine, but rejects
-combinations that cannot work. Validation runs in `BlockchainConfig.validate()`
-(called by `build_blockchain`) and in component constructors. Examples:
+The assembly layer is permissive about *which* parts you combine, but it
+distinguishes two cases. Validation runs in `BlockchainConfig.validate()`
+(called by `build_blockchain`) and in component constructors.
+
+**Impossible / incompatible → hard error.** Combinations that cannot work are
+rejected, so the system never silently misbehaves:
 
 - Unknown `ledger_model` / `fee_policy` name.
 - `max_transactions_per_block < 1`, or `target` outside `[1, max]`.
@@ -405,8 +408,25 @@ combinations that cannot work. Validation runs in `BlockchainConfig.validate()`
   peers sampled), `k < 1`, or thresholds `< 1`.
 
 Invalid blockchain assemblies raise `chaincraft.ConfigError`; invalid component
-parameters raise `ValueError` or `chaincraft.consensus.ConsensusError`. Prefer
-surfacing these at startup rather than failing obscurely mid-run.
+parameters raise `ValueError` or `chaincraft.consensus.ConsensusError`.
+
+**Allowed but experimental / unstable → non-fatal warning.** Combinations that
+*run* but carry weaker guarantees or pair a feature with a ledger that cannot
+fully use it emit a warning and proceed, so you stay in control:
+
+- `eip1559` on the `utxo` ledger (burn accounting validated for `balance` only).
+- Replace-by-fee enabled on a `utxo` ledger (no sender/nonce to match — inert).
+- `eip1559` with `coinbase_reward=0` (miners paid by tips only; may be
+  unincentivized).
+- `avalanche` with `alpha <= 0.5` (quorum not a strict majority).
+- `tendermint` with fewer than 4 validators (tolerates 0 Byzantine faults).
+
+These raise `chaincraft.ExperimentalConfigWarning` or
+`chaincraft.consensus.UnstableConsensusWarning` via the standard `warnings`
+module. Silence them per combination with `warnings.filterwarnings(...)`, or
+promote them to errors in strict environments with `warnings.simplefilter(
+"error", ...)`. Prefer surfacing all of this at startup rather than failing
+obscurely mid-run.
 
 ## Consensus Engines (0.6.0)
 
@@ -516,8 +536,16 @@ learners can read one self-contained file:
   (vertices, conflict sets, per-set Snowball, ancestry-gated acceptance).
 - Core `bft`: `TendermintConsensus` — deterministic propose/prevote/precommit
   with a > 2/3 Byzantine quorum.
+- Core `pow`: `ProofOfWorkConsensus` — longest-valid-chain Nakamoto consensus
+  built on the reusable `ForkAwareChain` helper (heaviest-chain fork choice,
+  deterministic tie-break, reorg deltas) with confirmation-based finality.
 - Toys in `examples/`: `Slush`, `Snowflake`, `Snowball` (binary single-decree
-  Avalanche family) and the networked `tendermint_bft.py` walkthrough.
+  Avalanche family), the networked `tendermint_bft.py` walkthrough, and the
+  mining-loop `blockchain.py` / `randomness_beacon.py` PoW demos.
+
+Reusable building blocks also live in the family packages — e.g.
+`chaincraft.consensus.pow.ForkAwareChain` is the fork-choice/reorg engine that
+any longest- or heaviest-chain protocol can build on.
 
 ## Examples
 
@@ -531,6 +559,7 @@ learners can read one self-contained file:
 | Tendermint BFT (toy) | Gossip (non-merkelized) | `examples/tendermint_bft.py` |
 | Avalanche (full) | Core consensus engine (`gossip`) | `chaincraft/consensus/gossip/avalanche.py` |
 | Tendermint (full) | Core consensus engine (`bft`) | `chaincraft/consensus/bft/tendermint.py` |
+| Proof-of-Work (full) | Core consensus engine (`pow`) | `chaincraft/consensus/pow/proof_of_work.py` |
 
 ### Gossip-path example (Chatroom)
 

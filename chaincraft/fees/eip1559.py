@@ -19,6 +19,8 @@ class EIP1559(FeePolicy):
     name = "eip1559"
 
     def __init__(self, *, min_base_fee: int = 1):
+        if min_base_fee < 0:
+            raise ValueError(f"min_base_fee must be >= 0, got {min_base_fee}")
         self.min_base_fee = min_base_fee
 
     def is_valid_fee(self, tx: Any, ctx: BlockContext) -> bool:

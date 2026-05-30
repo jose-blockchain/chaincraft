@@ -1,7 +1,8 @@
 """BFT / quorum consensus family.
 
-Examples: PBFT, Tendermint, HotStuff. Migration of the example Tendermint BFT
-engine is tracked separately.
+Core engine: the deterministic :class:`TendermintConsensus` (propose / prevote /
+precommit with a > 2/3 Byzantine quorum). The networked teaching implementation
+remains in ``examples/tendermint_bft.py``.
 """
 
 from ..base import CATEGORY_BFT, ConsensusEngine
@@ -13,4 +14,6 @@ class BFTConsensus(ConsensusEngine):
     category = CATEGORY_BFT
 
 
-__all__ = ["BFTConsensus"]
+from .tendermint import TendermintConsensus  # noqa: E402  (registers the engine)
+
+__all__ = ["BFTConsensus", "TendermintConsensus"]

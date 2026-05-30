@@ -36,6 +36,8 @@ from . import consensus
 from .config import (
     BlockchainConfig,
     BlockchainBuilder,
+    ConfigError,
+    ExperimentalConfigWarning,
     build_blockchain,
     Blockchain as ConfigurableBlockchain,
 )
@@ -66,6 +68,8 @@ __all__ = [
     "mempool",
     "consensus",
     "BlockchainConfig",
+    "ConfigError",
+    "ExperimentalConfigWarning",
     "BlockchainBuilder",
     "build_blockchain",
     "ConfigurableBlockchain",

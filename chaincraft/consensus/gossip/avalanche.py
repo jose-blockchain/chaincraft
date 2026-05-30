@@ -32,10 +32,11 @@ while still plugging into :class:`ConsensusEngine` for gossip-driven operation.
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from ..base import message_data
+from ..base import ConsensusError, UnstableConsensusWarning, message_data
 from ..registry import register_consensus
 from . import GossipConsensus
 
@@ -74,6 +75,25 @@ class AvalancheConsensus(GossipConsensus):
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
+        if k < 1:
+            raise ConsensusError(f"avalanche sample size k must be >= 1, got {k}")
+        if not (0.0 < alpha <= 1.0):
+            raise ConsensusError(
+                f"avalanche alpha must be in (0, 1], got {alpha} "
+                "(alpha > 1 would require more yes-votes than peers sampled)"
+            )
+        if beta1 < 1 or beta2 < 1:
+            raise ConsensusError(
+                f"avalanche thresholds must be >= 1, got beta1={beta1}, "
+                f"beta2={beta2}"
+            )
+        if alpha <= 0.5:
+            warnings.warn(
+                f"avalanche alpha={alpha} is at or below half: a quorum that is "
+                "not a strict majority weakens metastable safety (experimental)",
+                UnstableConsensusWarning,
+                stacklevel=2,
+            )
         self.k = k
         self.alpha = alpha
         self.beta1 = beta1
