@@ -5,7 +5,7 @@ This package provides the fundamental components needed to create distributed ne
 implement consensus mechanisms, and prototype blockchain applications.
 """
 
-__version__ = "0.5.2"
+__version__ = "0.6.0"
 __author__ = "Chaincraft Contributors"
 __email__ = "chaincraft@example.com"
 
@@ -29,6 +29,14 @@ from .core_objects import (
     DocumentCache,
 )
 from . import crypto_primitives
+from . import ledger
+from . import fees
+from .config import (
+    BlockchainConfig,
+    BlockchainBuilder,
+    build_blockchain,
+    Blockchain as ConfigurableBlockchain,
+)
 
 __all__ = [
     "ChaincraftNode",
@@ -51,5 +59,11 @@ __all__ = [
     "Mempool",
     "DocumentCache",
     "crypto_primitives",
+    "ledger",
+    "fees",
+    "BlockchainConfig",
+    "BlockchainBuilder",
+    "build_blockchain",
+    "ConfigurableBlockchain",
     "__version__",
 ]
