@@ -15,5 +15,30 @@ class GossipConsensus(ConsensusEngine):
 
 
 from .relay import RelayProposalConsensus  # noqa: E402  (registers the engine)
+from .avalanche import (  # noqa: E402
+    BinarySamplingConsensus,
+    Color,
+    SlushObject,
+    SnowflakeObject,
+    SnowballObject,
+    SnowballNode,
+    run_slush_nodes,
+    run_snowflake_nodes,
+    run_snowball_nodes,
+    COLORS,
+)
 
-__all__ = ["GossipConsensus", "RelayProposalConsensus"]
+__all__ = [
+    "GossipConsensus",
+    "RelayProposalConsensus",
+    "BinarySamplingConsensus",
+    "Color",
+    "SlushObject",
+    "SnowflakeObject",
+    "SnowballObject",
+    "SnowballNode",
+    "run_slush_nodes",
+    "run_snowflake_nodes",
+    "run_snowball_nodes",
+    "COLORS",
+]
