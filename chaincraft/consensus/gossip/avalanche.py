@@ -1,627 +1,244 @@
 #!/usr/bin/env python3
-"""Avalanche-family single-decree consensus (Slush, Snowflake, Snowball).
+"""Full Avalanche consensus (DAG metastable) - core engine.
 
-These protocols converge on a binary choice (RED or BLUE) by repeated random
-sampling of peers, as described in the Avalanche paper "Snowflake to Avalanche".
-They are migrated here from ``examples/`` and now share a common
-:class:`BinarySamplingConsensus` base that captures the duplicated plumbing
-(sampling, query handling, response collection, the ``Color`` enum, and the
-SharedObject adapters). Each protocol overrides only its decision logic:
+Unlike the single-decree *toy* protocols (Slush / Snowflake / Snowball, which
+live in ``examples/`` as teaching aids), this is the full Avalanche protocol:
+consensus over a DAG of transactions with conflict sets and the Snowball
+decision rule applied per conflict set.
 
-* **Slush** - flip toward any color seen with >= alpha*k support; accept after
-  ``m`` rounds.
-* **Snowflake** - add a conviction counter; accept after ``beta`` consecutive
-  successful samples for the same color.
-* **Snowball** - add persistent per-color confidence; switch preference only
-  when a color's confidence strictly exceeds the current preference's.
+Model (faithful to "Scalable and Probabilistic Leaderless BFT Consensus through
+Metastability"):
 
-The objects are ``CoreSharedObject`` instances driven by ``ChaincraftNode``'s
-direct peer-to-peer dispatch (:meth:`handle_p2p`); the gossip path is stubbed.
+* Each transaction (vertex) names a set of ``parents`` it approves and belongs
+  to a ``conflict_id``. Transactions sharing a ``conflict_id`` conflict; at most
+  one may be accepted.
+* A node repeatedly samples k peers about a conflict set and learns which member
+  each peer currently prefers. If some member receives >= alpha*k votes, that is
+  a *successful* Snowball step for that member: its confidence ``d`` increases,
+  it may become the set's preference, and a consecutive-success counter ``cnt``
+  advances (a failed step resets ``cnt``).
+* A transaction is *strongly preferred* when it is the preferred member of its
+  conflict set and so are all of its ancestors.
+* T is accepted once all its parents are accepted and either it is a virtuous
+  (singleton) transaction whose counter reaches ``beta1``, or it is the
+  preferred member of a contested set whose counter reaches ``beta2``.
+
+The engine is transport-agnostic and deterministic: sample outcomes are fed in
+via :meth:`record_query`, and :meth:`respond` / :meth:`preferred` answer a peer's
+query. This makes the metastable dynamics unit-testable without real sockets,
+while still plugging into :class:`ConsensusEngine` for gossip-driven operation.
 """
 
 from __future__ import annotations
 
-import json
-import logging
-import random
-import threading
-import time
-from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+import math
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Set, Tuple
 
-from chaincraft.core_objects import CoreSharedObject
-from chaincraft.node import ChaincraftNode
-from chaincraft.shared_message import SharedMessage
+from ..base import message_data
+from ..registry import register_consensus
+from . import GossipConsensus
 
-#: ChaincraftNode-like; kept loose to avoid hard coupling in type hints.
-NodeT = Any
-
-COLORS = ("R", "B")
+MESSAGE_TAG = "avalanche"
 
 
-class Color(Enum):
-    """Binary choice: Red or Blue (paper R/B)."""
-
-    RED = "R"
-    BLUE = "B"
-    UNCOLORED = "\u22a5"
-
-
-def _color_from(value: str) -> Color:
-    return Color.RED if value == "R" else Color.BLUE
+@dataclass
+class _Vertex:
+    tx_id: str
+    parents: Tuple[str, ...]
+    conflict_id: str
+    data: Any = None
+    accepted: bool = False
 
 
-class BinarySamplingConsensus(CoreSharedObject):
-    """Shared base for the Avalanche binary-sampling protocols.
+@dataclass
+class _ConflictSet:
+    members: List[str] = field(default_factory=list)
+    pref: Optional[str] = None
+    last: Optional[str] = None
+    cnt: int = 0
 
-    Subclasses set :attr:`MSG_QUERY` / :attr:`MSG_RESPONSE` and implement
-    :meth:`_handle_query` and :meth:`_handle_response`. The base provides peer
-    sampling, response collection gating, the ``handle_p2p`` dispatcher, and the
-    SharedObject stub interface (these protocols use direct p2p, not gossip).
-    """
 
-    MSG_QUERY = "QUERY"
-    MSG_RESPONSE = "RESPONSE"
+@register_consensus
+class AvalancheConsensus(GossipConsensus):
+    """The full DAG-based Avalanche metastable consensus engine."""
+
+    name = "avalanche"
 
     def __init__(
         self,
-        node: NodeT,
         k: int = 10,
-        alpha: float = 0.5,
-        log_fn: Optional[Callable[[str], None]] = None,
-    ):
-        self.node = node
-        self.k = k
-        self.alpha = alpha
-        self._log = log_fn or (lambda msg: logging.info(msg))
-        self._accepted: Optional[Color] = None
-        self._pending: Dict[int, Dict[Tuple[str, int], Color]] = {}
-        self._processed: set = set()
-        self._lock = threading.Lock()
-
-    # -- shared helpers ----------------------------------------------------
-    def _log_node(self, msg: str) -> None:
-        self._log(f"[{self.node.port}] {msg}")
-
-    def handle_p2p(self, addr: tuple, data: dict) -> None:
-        """Entry point for direct node-to-node messages (not stored/gossiped)."""
-        p2p_type = data.get("p2p")
-        if p2p_type == self.MSG_QUERY:
-            self._handle_query(addr, data)
-        elif p2p_type == self.MSG_RESPONSE:
-            self._handle_response(addr, data)
-
-    def _sample_peers(self) -> List[Tuple[str, int]]:
-        peers = list(self.node.peers)
-        sample_size = min(self.k, len(peers))
-        if sample_size == 0:
-            return []
-        return random.sample(peers, sample_size)
-
-    def _record_response(
-        self, key: int, addr: Tuple[str, int], col: Color
-    ) -> Optional[List[Color]]:
-        """Collect a response; return the response list once k are gathered.
-
-        Returns ``None`` while still waiting, if already accepted, or if this
-        key was already processed.
-        """
-        with self._lock:
-            if self._accepted is not None:
-                return None
-            if key not in self._pending:
-                self._pending[key] = {}
-            self._pending[key][addr] = col
-            if len(self._pending[key]) < self.k or key in self._processed:
-                return None
-            self._processed.add(key)
-            return list(self._pending[key].values())
-
-    def get_accepted(self) -> Optional[Color]:
-        return self._accepted
-
-    # -- subclass hooks ----------------------------------------------------
-    def _handle_query(self, addr: Tuple[str, int], data: dict) -> None:
-        raise NotImplementedError
-
-    def _handle_response(self, addr: Tuple[str, int], data: dict) -> None:
-        raise NotImplementedError
-
-    # -- SharedObject stubs (these protocols use direct p2p, not gossip) ---
-    def is_valid(self, message: SharedMessage) -> bool:
-        return False
-
-    def add_message(self, message: SharedMessage, frontier_state=None) -> None:
-        pass
-
-
-class SlushObject(BinarySamplingConsensus):
-    """Slush (Avalanche paper, Section 2.2). Not Byzantine fault tolerant."""
-
-    MSG_QUERY = "SLUSH_QUERY"
-    MSG_RESPONSE = "SLUSH_RESPONSE"
-
-    def __init__(
-        self,
-        node: NodeT,
-        k: int = 10,
-        alpha: float = 0.5,
-        m: int = 10,
-        log_fn: Optional[Callable[[str], None]] = None,
-    ):
-        super().__init__(node, k=k, alpha=alpha, log_fn=log_fn)
-        self.m = m
-        self._color = Color.UNCOLORED
-        # Alias so the canonical processed-set is exposed under the legacy name.
-        self._processed_rounds = self._processed
-
-    def _send_round(self, r: int) -> None:
-        """Send round r queries to sampled peers. Runs in listener thread."""
-        sampled = self._sample_peers()
-        if not sampled:
-            return
-        with self._lock:
-            self._pending[r] = {}
-        for peer in sampled:
-            q = {
-                "p2p": self.MSG_QUERY,
-                "r": r,
-                "col": self._color.value,
-                "from": f"{self.node.host}:{self.node.port}",
-            }
-            self.node.send_to_peer(peer, json.dumps(q))
-
-    def propose(self, initial_color: Color) -> None:
-        with self._lock:
-            if self._accepted is not None:
-                return
-            self._color = initial_color
-        self._log_node(f"propose: {initial_color.value}")
-        self._send_round(1)
-
-    def _handle_query(self, addr: Tuple[str, int], data: dict) -> None:
-        if "col" not in data or "r" not in data:
-            return
-        r = data["r"]
-        col_str = data["col"]
-        adopted = False
-        with self._lock:
-            if self._color == Color.UNCOLORED:
-                self._color = _color_from(col_str)
-                adopted = True
-                self._log_node(f"onQuery: adopted {self._color.value} from {addr}")
-            resp = {
-                "p2p": self.MSG_RESPONSE,
-                "r": r,
-                "col": self._color.value,
-                "from": f"{self.node.host}:{self.node.port}",
-            }
-        self.node.send_to_peer(addr, json.dumps(resp))
-        if adopted:
-            self._send_round(1)
-
-    def _handle_response(self, addr: Tuple[str, int], data: dict) -> None:
-        if "r" not in data or "col" not in data:
-            return
-        r = data["r"]
-        col = _color_from(data["col"])
-        responses = self._record_response(r, addr, col)
-        if responses is None:
-            return
-        if len(responses) < max(1, int(self.alpha * self.k)):
-            return
-        counts = {Color.RED: 0, Color.BLUE: 0}
-        for c in responses:
-            if c in counts:
-                counts[c] += 1
-        for c in (Color.RED, Color.BLUE):
-            if counts[c] >= int(self.alpha * self.k) and c != self._color:
-                with self._lock:
-                    self._color = c
-                self._log_node(f"Round {r}: flipped to {c.value}")
-                break
-        if r < self.m:
-            self._send_round(r + 1)
-        else:
-            with self._lock:
-                self._accepted = self._color
-            self._log_node(f"Slush accepted: {self._accepted.value}")
-
-
-class SnowflakeObject(BinarySamplingConsensus):
-    """Snowflake (Avalanche paper, Section 2.3). BFT via a conviction counter."""
-
-    MSG_QUERY = "SNOWFLAKE_QUERY"
-    MSG_RESPONSE = "SNOWFLAKE_RESPONSE"
-
-    def __init__(
-        self,
-        node: NodeT,
-        k: int = 10,
-        alpha: float = 0.5,
-        beta: int = 5,
-        log_fn: Optional[Callable[[str], None]] = None,
-    ):
-        super().__init__(node, k=k, alpha=alpha, log_fn=log_fn)
-        self.beta = beta
-        self._color = Color.UNCOLORED
-        self._cnt = 0
-        self._query_id = 0
-        self._processed_qids = self._processed
-
-    def _send_query(self) -> None:
-        sampled = self._sample_peers()
-        if not sampled:
-            return
-        with self._lock:
-            self._query_id += 1
-            qid = self._query_id
-            self._pending[qid] = {}
-        for peer in sampled:
-            q = {
-                "p2p": self.MSG_QUERY,
-                "qid": qid,
-                "col": self._color.value,
-                "from": f"{self.node.host}:{self.node.port}",
-            }
-            self.node.send_to_peer(peer, json.dumps(q))
-
-    def propose(self, initial_color: Color) -> None:
-        with self._lock:
-            if self._accepted is not None:
-                return
-            self._color = initial_color
-            self._cnt = 0
-        self._log_node(f"propose: {initial_color.value}")
-        self._send_query()
-
-    def _handle_query(self, addr: Tuple[str, int], data: dict) -> None:
-        if "col" not in data or "qid" not in data:
-            return
-        qid = data["qid"]
-        col_str = data["col"]
-        adopted = False
-        with self._lock:
-            if self._color == Color.UNCOLORED:
-                self._color = _color_from(col_str)
-                self._cnt = 0
-                adopted = True
-                self._log_node(f"onQuery: adopted {self._color.value} from {addr}")
-            resp = {
-                "p2p": self.MSG_RESPONSE,
-                "qid": qid,
-                "col": self._color.value,
-                "from": f"{self.node.host}:{self.node.port}",
-            }
-        self.node.send_to_peer(addr, json.dumps(resp))
-        if adopted:
-            self._send_query()
-
-    def _handle_response(self, addr: Tuple[str, int], data: dict) -> None:
-        if "qid" not in data or "col" not in data:
-            return
-        qid = data["qid"]
-        col = _color_from(data["col"])
-        responses = self._record_response(qid, addr, col)
-        if responses is None:
-            return
-        if len(responses) < max(1, int(self.alpha * self.k)):
-            return
-        threshold = int(self.alpha * self.k)
-        counts = {Color.RED: 0, Color.BLUE: 0}
-        for c in responses:
-            if c in counts:
-                counts[c] += 1
-        other = Color.BLUE if self._color == Color.RED else Color.RED
-        if counts.get(other, 0) >= threshold:
-            with self._lock:
-                self._color = other
-                self._cnt = 0
-            self._log_node(f"Query {qid}: flipped to {other.value}, cnt=0")
-            self._send_query()
-        elif counts.get(self._color, 0) >= threshold:
-            with self._lock:
-                self._cnt += 1
-                if self._cnt > self.beta:
-                    self._accepted = self._color
-                    self._log_node(
-                        f"Snowflake accepted: {self._accepted.value} "
-                        f"(cnt={self._cnt})"
-                    )
-                    return
-            self._log_node(f"Query {qid}: same color, cnt={self._cnt}")
-            self._send_query()
-
-
-class SnowballObject(BinarySamplingConsensus):
-    """Snowball: Snowflake plus persistent per-color confidence counters."""
-
-    MSG_QUERY = "SNOWBALL_QUERY"
-    MSG_RESPONSE = "SNOWBALL_RESPONSE"
-
-    def __init__(
-        self,
-        node: NodeT,
-        k: int = 10,
-        alpha: float = 0.5,
-        beta: int = 8,
-        log_fn: Optional[Callable[[str], None]] = None,
-    ):
-        super().__init__(node, k=k, alpha=alpha, log_fn=log_fn)
-        self.beta = beta
-        self._preference = Color.UNCOLORED
-        self._query_id = 0
-        self._confidence: Dict[Color, int] = {Color.RED: 0, Color.BLUE: 0}
-        self._last_color = Color.UNCOLORED
-        self._cnt = 0
-        self._processed_qids = self._processed
-
-    def propose(self, initial_color: Color) -> None:
-        with self._lock:
-            if self._accepted is not None:
-                return
-            self._preference = initial_color
-            self._last_color = initial_color
-            self._cnt = 0
-        self._log_node(f"propose: {initial_color.value}")
-        self._send_query()
-
-    def _send_query(self) -> None:
-        sampled = self._sample_peers()
-        if not sampled:
-            return
-        with self._lock:
-            self._query_id += 1
-            qid = self._query_id
-            self._pending[qid] = {}
-        for peer in sampled:
-            msg = {
-                "p2p": self.MSG_QUERY,
-                "qid": qid,
-                "col": self._preference.value,
-                "from": f"{self.node.host}:{self.node.port}",
-            }
-            self.node.send_to_peer(peer, json.dumps(msg))
-
-    def _handle_query(self, addr: Tuple[str, int], data: dict) -> None:
-        if "qid" not in data or "col" not in data:
-            return
-        qid = data["qid"]
-        proposed_color = _color_from(data["col"])
-        adopted = False
-        with self._lock:
-            if self._preference == Color.UNCOLORED:
-                self._preference = proposed_color
-                self._last_color = proposed_color
-                self._cnt = 0
-                adopted = True
-            response = {
-                "p2p": self.MSG_RESPONSE,
-                "qid": qid,
-                "col": self._preference.value,
-                "from": f"{self.node.host}:{self.node.port}",
-            }
-        self.node.send_to_peer(addr, json.dumps(response))
-        if adopted:
-            self._send_query()
-
-    def _handle_response(self, addr: Tuple[str, int], data: dict) -> None:
-        if "qid" not in data or "col" not in data:
-            return
-        qid = data["qid"]
-        color = _color_from(data["col"])
-        responses = self._record_response(qid, addr, color)
-        if responses is None:
-            return
-
-        threshold = max(1, int(self.alpha * self.k))
-        counts = {Color.RED: 0, Color.BLUE: 0}
-        for c in responses:
-            if c in counts:
-                counts[c] += 1
-
-        if counts[Color.RED] >= threshold and counts[Color.RED] > counts[Color.BLUE]:
-            sample_majority = Color.RED
-        elif counts[Color.BLUE] >= threshold and counts[Color.BLUE] > counts[Color.RED]:
-            sample_majority = Color.BLUE
-        else:
-            self._send_query()
-            return
-
-        with self._lock:
-            self._confidence[sample_majority] += 1
-
-            if (
-                self._preference == Color.UNCOLORED
-                or self._confidence[sample_majority]
-                > self._confidence[self._preference]
-            ):
-                self._preference = sample_majority
-
-            if sample_majority != self._last_color:
-                self._last_color = sample_majority
-                self._cnt = 0
-            else:
-                self._cnt += 1
-                if self._cnt > self.beta:
-                    self._accepted = self._preference
-                    self._log_node(
-                        f"Snowball accepted: {self._accepted.value} "
-                        f"(conf R={self._confidence[Color.RED]}, "
-                        f"B={self._confidence[Color.BLUE]}, cnt={self._cnt})"
-                    )
-                    return
-
-        self._send_query()
-
-    def get_confidence(self) -> Dict[Color, int]:
-        return dict(self._confidence)
-
-    def get_consecutive_count(self) -> int:
-        return self._cnt
-
-
-class SnowballNode(ChaincraftNode):
-    """ChaincraftNode wrapper that hosts a :class:`SnowballObject`."""
-
-    def __init__(
-        self,
-        *,
-        port: int,
-        max_peers: int = 9,
-        local_discovery: bool = True,
-        k: int = 10,
-        alpha: float = 0.5,
-        beta: int = 8,
-        log_fn: Optional[Callable[[str], None]] = None,
+        alpha: float = 0.6,
+        beta1: int = 2,
+        beta2: int = 5,
         **kwargs: Any,
     ) -> None:
-        super().__init__(
-            port=port,
-            max_peers=max_peers,
-            local_discovery=local_discovery,
-            **kwargs,
+        super().__init__(**kwargs)
+        self.k = k
+        self.alpha = alpha
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self._vertices: Dict[str, _Vertex] = {}
+        self._children: Dict[str, Set[str]] = {}
+        self._d: Dict[str, int] = {}
+        self._conflicts: Dict[str, _ConflictSet] = {}
+
+    @property
+    def quorum(self) -> int:
+        """Minimum votes (>= alpha*k) for a successful Snowball step."""
+        return max(1, math.ceil(self.alpha * self.k))
+
+    # -- DAG construction --------------------------------------------------
+    def add_tx(
+        self,
+        tx_id: str,
+        parents: Tuple[str, ...] = (),
+        conflict_id: Optional[str] = None,
+        data: Any = None,
+    ) -> bool:
+        """Add a transaction/vertex. Returns False if already known."""
+        if tx_id in self._vertices:
+            return False
+        conflict_id = conflict_id if conflict_id is not None else tx_id
+        self._vertices[tx_id] = _Vertex(
+            tx_id=tx_id,
+            parents=tuple(parents),
+            conflict_id=conflict_id,
+            data=data,
         )
-        self.snowball = SnowballObject(self, k=k, alpha=alpha, beta=beta, log_fn=log_fn)
-        self.add_shared_object(self.snowball)
+        self._children.setdefault(tx_id, set())
+        self._d[tx_id] = 0
+        for parent in parents:
+            self._children.setdefault(parent, set()).add(tx_id)
 
-    def propose(self, initial_color: Color) -> None:
-        self.snowball.propose(initial_color)
+        cs = self._conflicts.setdefault(conflict_id, _ConflictSet())
+        cs.members.append(tx_id)
+        if cs.pref is None:
+            cs.pref = tx_id
+        return True
 
-    def get_accepted(self) -> Optional[Color]:
-        return self.snowball.get_accepted()
+    def ancestors(self, tx_id: str) -> Set[str]:
+        seen: Set[str] = set()
+        stack = list(self._vertices[tx_id].parents)
+        while stack:
+            cur = stack.pop()
+            if cur in seen or cur not in self._vertices:
+                continue
+            seen.add(cur)
+            stack.extend(self._vertices[cur].parents)
+        return seen
 
+    # -- preference queries ------------------------------------------------
+    def is_preferred(self, tx_id: str) -> bool:
+        vertex = self._vertices[tx_id]
+        return self._conflicts[vertex.conflict_id].pref == tx_id
 
-def _run_sampling_nodes(
-    object_factory,
-    *,
-    num_nodes: int,
-    base_port: int,
-    proposer_idx: int,
-    initial_color: Color,
-    label: str,
-) -> Dict[int, Optional[Color]]:
-    """Shared driver: build a mesh of nodes, propose, and poll for decisions."""
-    log_fn: Callable[[str], None] = lambda msg: print(f"[{label}] {msg}")
-    nodes: List[ChaincraftNode] = []
-    objects = []
+    def is_strongly_preferred(self, tx_id: str) -> bool:
+        if tx_id not in self._vertices:
+            return False
+        if not self.is_preferred(tx_id):
+            return False
+        return all(self.is_preferred(a) for a in self.ancestors(tx_id))
 
-    for i in range(num_nodes):
-        node = ChaincraftNode(
-            port=base_port + i,
-            max_peers=num_nodes - 1,
-            local_discovery=True,
+    def preferred(self, conflict_id: str) -> Optional[str]:
+        cs = self._conflicts.get(conflict_id)
+        return cs.pref if cs else None
+
+    def confidence(self, tx_id: str) -> int:
+        return self._d.get(tx_id, 0)
+
+    def consecutive(self, conflict_id: str) -> int:
+        cs = self._conflicts.get(conflict_id)
+        return cs.cnt if cs else 0
+
+    def respond(self, tx_id: str) -> bool:
+        """A peer's answer to a query: yes iff the tx is strongly preferred."""
+        return self.is_strongly_preferred(tx_id)
+
+    # -- Snowball step per conflict set ------------------------------------
+    def record_query(self, tx_id: str, votes: int) -> None:
+        """Apply a Snowball step for ``tx_id`` given ``votes`` yes-responses."""
+        if tx_id not in self._vertices:
+            return
+        cs = self._conflicts[self._vertices[tx_id].conflict_id]
+        if votes >= self.quorum:
+            self._d[tx_id] += 1
+            if self._d[tx_id] > self._d.get(cs.pref, 0):
+                cs.pref = tx_id
+            if cs.last == tx_id:
+                cs.cnt += 1
+            else:
+                cs.last = tx_id
+                cs.cnt = 1
+        else:
+            cs.cnt = 0
+        self._try_accept_all()
+
+    # -- acceptance --------------------------------------------------------
+    def _try_accept_all(self) -> None:
+        changed = True
+        while changed:
+            changed = False
+            for tx_id, vertex in self._vertices.items():
+                if not vertex.accepted and self._can_accept(tx_id):
+                    vertex.accepted = True
+                    changed = True
+
+    def _can_accept(self, tx_id: str) -> bool:
+        vertex = self._vertices[tx_id]
+        for parent in vertex.parents:
+            if parent in self._vertices and not self._vertices[parent].accepted:
+                return False
+        cs = self._conflicts[vertex.conflict_id]
+        if len(cs.members) == 1:
+            return cs.pref == tx_id and cs.cnt >= self.beta1
+        return cs.pref == tx_id and cs.cnt >= self.beta2
+
+    def is_accepted(self, tx_id: str) -> bool:
+        vertex = self._vertices.get(tx_id)
+        return bool(vertex and vertex.accepted)
+
+    def accepted_transactions(self) -> Set[str]:
+        return {t for t, v in self._vertices.items() if v.accepted}
+
+    # -- ConsensusEngine interface ----------------------------------------
+    def propose(self, value: Any) -> None:
+        """Propose a transaction. ``value`` is a tx id or a spec dict."""
+        spec = self._normalize_spec(value)
+        if self.add_tx(**spec):
+            self.broadcast({"consensus": MESSAGE_TAG, "op": "tx", "tx": spec})
+
+    def observe(self, message: Any) -> None:
+        data = message_data(message)
+        if not isinstance(data, dict) or data.get("consensus") != MESSAGE_TAG:
+            return
+        if data.get("op") == "tx":
+            self.add_tx(**self._normalize_spec(data.get("tx", {})))
+
+    def is_valid(self, message: Any) -> bool:
+        data = message_data(message)
+        return isinstance(data, dict) and data.get("consensus") == MESSAGE_TAG
+
+    def is_decided(self) -> bool:
+        """Decided when every conflict set has an accepted member."""
+        if not self._conflicts:
+            return False
+        return all(
+            any(self._vertices[m].accepted for m in cs.members)
+            for cs in self._conflicts.values()
         )
-        obj = object_factory(node, log_fn)
-        node.add_shared_object(obj)
-        node.start()
-        nodes.append(node)
-        objects.append(obj)
 
-    for i in range(num_nodes):
-        for j in range(num_nodes):
-            if i != j:
-                nodes[i].connect_to_peer(nodes[j].host, nodes[j].port)
-    time.sleep(0.5)
+    def decision(self) -> Optional[Set[str]]:
+        accepted = self.accepted_transactions()
+        return accepted or None
 
-    objects[proposer_idx].propose(initial_color)
-    log_fn(f"Node {nodes[proposer_idx].port} proposes {initial_color.value}")
-
-    timeout = 60.0
-    start = time.time()
-    while time.time() - start < timeout:
-        if all(o.get_accepted() is not None for o in objects):
-            break
-        time.sleep(0.1)
-
-    results = {node.port: obj.get_accepted() for node, obj in zip(nodes, objects)}
-    for node in nodes:
-        node.close()
-    return results
-
-
-def run_slush_nodes(
-    num_nodes: int = 10,
-    base_port: int = 9010,
-    k: int = 4,
-    alpha: float = 0.5,
-    m: int = 8,
-    proposer_idx: int = 0,
-    initial_color: Color = Color.RED,
-) -> Dict[int, Optional[Color]]:
-    return _run_sampling_nodes(
-        lambda node, log_fn: SlushObject(node, k=k, alpha=alpha, m=m, log_fn=log_fn),
-        num_nodes=num_nodes,
-        base_port=base_port,
-        proposer_idx=proposer_idx,
-        initial_color=initial_color,
-        label="Slush",
-    )
-
-
-def run_snowflake_nodes(
-    num_nodes: int = 10,
-    base_port: int = 9310,
-    k: int = 4,
-    alpha: float = 0.5,
-    beta: int = 5,
-    proposer_idx: int = 0,
-    initial_color: Color = Color.RED,
-) -> Dict[int, Optional[Color]]:
-    return _run_sampling_nodes(
-        lambda node, log_fn: SnowflakeObject(
-            node, k=k, alpha=alpha, beta=beta, log_fn=log_fn
-        ),
-        num_nodes=num_nodes,
-        base_port=base_port,
-        proposer_idx=proposer_idx,
-        initial_color=initial_color,
-        label="Snowflake",
-    )
-
-
-def run_snowball_nodes(
-    num_nodes: int = 10,
-    base_port: int = 9510,
-    k: int = 4,
-    alpha: float = 0.5,
-    beta: int = 8,
-    proposer_idx: int = 0,
-    initial_color: Color = Color.RED,
-) -> Dict[int, Optional[Color]]:
-    log_fn: Callable[[str], None] = lambda msg: print(f"[Snowball] {msg}")
-    nodes: List[SnowballNode] = []
-
-    for i in range(num_nodes):
-        node = SnowballNode(
-            port=base_port + i,
-            max_peers=num_nodes - 1,
-            local_discovery=True,
-            k=k,
-            alpha=alpha,
-            beta=beta,
-            log_fn=log_fn,
-        )
-        node.start()
-        nodes.append(node)
-
-    for i in range(num_nodes):
-        for j in range(num_nodes):
-            if i != j:
-                nodes[i].connect_to_peer(nodes[j].host, nodes[j].port)
-    time.sleep(0.5)
-
-    nodes[proposer_idx].propose(initial_color)
-    log_fn(f"Node {nodes[proposer_idx].port} proposes {initial_color.value}")
-
-    timeout = 60.0
-    start = time.time()
-    while time.time() - start < timeout:
-        if all(node.get_accepted() is not None for node in nodes):
-            break
-        time.sleep(0.1)
-
-    results = {node.port: node.get_accepted() for node in nodes}
-    for node in nodes:
-        node.close()
-    return results
+    @staticmethod
+    def _normalize_spec(value: Any) -> Dict[str, Any]:
+        if isinstance(value, dict):
+            return {
+                "tx_id": value["tx_id"],
+                "parents": tuple(value.get("parents", ())),
+                "conflict_id": value.get("conflict_id"),
+                "data": value.get("data"),
+            }
+        return {"tx_id": value, "parents": (), "conflict_id": None, "data": None}

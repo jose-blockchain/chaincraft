@@ -1,8 +1,8 @@
 """Gossip-based consensus family (randomized sampling, virtual voting).
 
-Examples: Avalanche (Slush/Snowflake/Snowball), Hashgraph. The existing
-``examples/`` Avalanche protocols are migrated here under a shared base
-(tracked separately).
+Core engines: the full DAG-based :class:`AvalancheConsensus` (and, later,
+Hashgraph). The single-decree toy protocols Slush / Snowflake / Snowball remain
+in ``examples/`` as teaching aids rather than core engines.
 """
 
 from ..base import CATEGORY_GOSSIP, ConsensusEngine
@@ -15,30 +15,10 @@ class GossipConsensus(ConsensusEngine):
 
 
 from .relay import RelayProposalConsensus  # noqa: E402  (registers the engine)
-from .avalanche import (  # noqa: E402
-    BinarySamplingConsensus,
-    Color,
-    SlushObject,
-    SnowflakeObject,
-    SnowballObject,
-    SnowballNode,
-    run_slush_nodes,
-    run_snowflake_nodes,
-    run_snowball_nodes,
-    COLORS,
-)
+from .avalanche import AvalancheConsensus  # noqa: E402  (registers the engine)
 
 __all__ = [
     "GossipConsensus",
     "RelayProposalConsensus",
-    "BinarySamplingConsensus",
-    "Color",
-    "SlushObject",
-    "SnowflakeObject",
-    "SnowballObject",
-    "SnowballNode",
-    "run_slush_nodes",
-    "run_snowflake_nodes",
-    "run_snowball_nodes",
-    "COLORS",
+    "AvalancheConsensus",
 ]
