@@ -32,6 +32,7 @@ from . import crypto_primitives
 from . import ledger
 from . import fees
 from . import mempool
+from . import consensus
 from .config import (
     BlockchainConfig,
     BlockchainBuilder,
@@ -63,6 +64,7 @@ __all__ = [
     "ledger",
     "fees",
     "mempool",
+    "consensus",
     "BlockchainConfig",
     "BlockchainBuilder",
     "build_blockchain",
