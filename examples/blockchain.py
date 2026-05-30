@@ -8,7 +8,6 @@ import sys
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional, Set
 
-from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import serialization
 
 # Try to import from installed package first, fall back to direct imports
@@ -21,7 +20,7 @@ try:
     )
     from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
     from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
-    from chaincraft.state_memento import StateMemento, normalize_state_memento
+    from chaincraft.state_memento import StateMemento
     from chaincraft.shared_message import SharedMessage
 except ImportError:
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -38,7 +37,7 @@ except ImportError:
         )
         from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
         from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
-        from chaincraft.state_memento import StateMemento, normalize_state_memento
+        from chaincraft.state_memento import StateMemento
     except ImportError:
         from chaincraft.shared_object import SharedObject as CoreMempool
         from chaincraft.shared_object import SharedObject as CoreBlockchain
@@ -48,7 +47,7 @@ except ImportError:
         )
         from chaincraft.crypto_primitives.pow import ProofOfWorkPrimitive
         from chaincraft.crypto_primitives.sign import ECDSASignaturePrimitive
-        from chaincraft.state_memento import StateMemento, normalize_state_memento
+        from chaincraft.state_memento import StateMemento
     from chaincraft.shared_message import SharedMessage
 
 

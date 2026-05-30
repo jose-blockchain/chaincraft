@@ -1,6 +1,6 @@
 import time
 import json
-from typing import Callable, List, Dict, Optional
+from typing import Callable, Dict, Optional
 import os
 import sys
 

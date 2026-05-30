@@ -12,15 +12,13 @@ import sys
 # Ensure project root is in path before importing chaincraft/examples
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import unittest
-import time
 import json
+import unittest
 
 from examples.slush_protocol import (
     SlushObject,
     Color,
     run_slush_nodes,
-    COLORS,
 )
 
 

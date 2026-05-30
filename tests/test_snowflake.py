@@ -18,7 +18,6 @@ from examples.snowflake_protocol import (
     SnowflakeObject,
     Color,
     run_snowflake_nodes,
-    COLORS,
 )
 
 
