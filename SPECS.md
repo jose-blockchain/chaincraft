@@ -1,8 +1,33 @@
-# Chaincraft Protocol Implementation Specification v2
+# Chaincraft Protocol Implementation Specification v3 (0.6.0)
 
-This document describes SPECS v2 for implementing a protocol using Chaincraft.
+This document describes SPECS v3 for implementing a protocol using Chaincraft.
 You write protocol logic only; Chaincraft handles networking, gossip,
 storage, peer management, and concurrency.
+
+**What v3 (0.6.0) adds, and why it stays uniform.** The `SharedObject` /
+`SharedMessage` substrate described below is unchanged and remains the
+foundation every protocol builds on. On top of it, 0.6.0 introduces a layer of
+**pluggable, swap-by-name components** so that assembling or forking a system is
+a configuration change, not a rewrite:
+
+- **Ledger models** (`chaincraft.ledger`) — account/`balance` or `utxo`.
+- **Fee policies** (`chaincraft.fees`) — `highest_first`, `median`, `eip1559`.
+- **Mempool policy** (`chaincraft.mempool`) — admission/retention rules.
+- **Consensus engines** (`chaincraft.consensus`) — a first-class, categorized,
+  registry-driven abstraction (no longer buried in `examples/`).
+- **Assembly** (`chaincraft.config`) — `BlockchainConfig` + `build_blockchain`.
+
+Two rules keep usage uniform across the whole library:
+
+1. **Select by name through a registry.** Every component family exposes a
+   `get_*` helper (`get_ledger_model`, `get_fee_policy`, `get_consensus_engine`)
+   and a name→class registry, so a default works out of the box and any part is
+   one string away from being swapped.
+2. **Impossible combinations fail fast.** Components validate their own
+   parameters on construction, and `BlockchainConfig.validate()` rejects
+   self-contradictory assemblies with a clear `ConfigError`. The system is
+   highly configurable, but it will not let you build something that cannot
+   work (see "Configuration Validation").
 
 ## Architecture Overview
 
@@ -331,16 +356,181 @@ for the pattern.
 - **No deduplication.** Messages are hashed and deduplicated by the node.
 - **No peer management.** Use `node.connect_to_peer()` and `local_discovery`.
 
+## Pluggable Components (0.6.0)
+
+A blockchain in Chaincraft is assembled from interchangeable parts. The default
+config produces a working chain; each part is swappable by name.
+
+| Family | Module | `get_*` helper | Built-in names |
+|---|---|---|---|
+| Ledger model | `chaincraft.ledger` | `get_ledger_model` | `balance`, `utxo` |
+| Fee policy | `chaincraft.fees` | `get_fee_policy` | `highest_first`, `median`, `eip1559` |
+| Consensus engine | `chaincraft.consensus` | `get_consensus_engine` | `relay`, `avalanche`, `tendermint`, … |
+| Mempool policy | `chaincraft.mempool` | (dataclass `MempoolPolicy`) | — |
+
+```python
+from chaincraft import BlockchainConfig, build_blockchain
+from chaincraft.mempool import MempoolPolicy
+
+config = BlockchainConfig(
+    ledger_model="balance",          # or "utxo"
+    fee_policy="eip1559",            # or "highest_first", "median"
+    initial_base_fee=1,
+    max_transactions_per_block=100,
+    target_transactions_per_block=50,
+    mempool_policy=MempoolPolicy(max_size=10_000, min_fee=1, enable_rbf=True),
+    genesis_allocations={"alice": 1_000},
+)
+chain = build_blockchain(config)     # validates, then assembles
+chain.submit(tx)                     # admission via fee + mempool policy
+block = chain.produce_block(miner="alice")
+```
+
+Swapping the ledger or fee market is a one-line change to the config; nothing
+else in your code moves.
+
+### Configuration Validation
+
+The assembly layer is permissive about *which* parts you combine, but rejects
+combinations that cannot work. Validation runs in `BlockchainConfig.validate()`
+(called by `build_blockchain`) and in component constructors. Examples:
+
+- Unknown `ledger_model` / `fee_policy` name.
+- `max_transactions_per_block < 1`, or `target` outside `[1, max]`.
+- Negative `coinbase_reward`, `initial_base_fee`, or genesis allocation.
+- `eip1559` with `initial_base_fee` below the policy's `min_base_fee` floor.
+- A per-sender mempool cap (`max_per_sender`) on a `utxo` ledger, which has no
+  sender identity to count against.
+- `avalanche` with `alpha` outside `(0, 1]` (would need more yes-votes than
+  peers sampled), `k < 1`, or thresholds `< 1`.
+
+Invalid blockchain assemblies raise `chaincraft.ConfigError`; invalid component
+parameters raise `ValueError` or `chaincraft.consensus.ConsensusError`. Prefer
+surfacing these at startup rather than failing obscurely mid-run.
+
+## Consensus Engines (0.6.0)
+
+Consensus is a first-class, pluggable concept. Engines live in
+`chaincraft/consensus/`, grouped into families so users can explore and compare
+a broad catalog and **fork any of them easily**:
+
+- `gossip` — randomized sampling / virtual voting (e.g. **Avalanche**, Hashgraph)
+- `pow` — proof-of-work and verifiable-delay linear work
+- `bft` — quorum protocols (e.g. **Tendermint**, PBFT, HotStuff)
+- `dag` — DAG / block-lattice protocols (Nano, DAGcoin)
+
+```python
+from chaincraft.consensus import default_registry, get_consensus_engine
+
+default_registry.categories()        # {'gossip': [...], 'bft': [...], ...}
+engine = get_consensus_engine("tendermint", validator_id="v0",
+                              validators=["v0", "v1", "v2", "v3"])
+engine.propose("blockA")
+engine.is_decided(), engine.decision()
+```
+
+### The `ConsensusEngine` contract
+
+Every engine subclasses a category base (`GossipConsensus`, `PoWConsensus`,
+`BFTConsensus`, `DAGConsensus`, all of which extend `ConsensusEngine`) and
+implements three abstract methods plus, optionally, message hooks:
+
+```python
+class ConsensusEngine(ABC):
+    name: str = "abstract"           # registry key
+    category: str = "abstract"       # one of the families above
+
+    # Lifecycle (you implement these three)
+    def propose(self, value): ...        # submit a value to drive a decision
+    def is_decided(self) -> bool: ...    # has a decision been reached?
+    def decision(self): ...              # the decided value, or None
+
+    # Message hooks (override what you need)
+    def observe(self, message): ...      # a gossiped SharedMessage arrived
+    def on_p2p(self, addr, data): ...    # a direct P2P message arrived
+
+    # Node integration (provided; rarely overridden)
+    def broadcast(self, data): ...       # gossip via the attached node
+```
+
+An engine **is** a `SharedObject`: its default `is_valid` / `add_message` /
+`handle_p2p` adapters route node traffic into `observe()` (gossip path) and
+`on_p2p()` (direct path), and `is_merkelized()` returns `False`. So you attach
+an engine exactly like any other protocol object:
+
+```python
+node.add_shared_object(engine)   # also calls engine._attach_node(node)
+```
+
+After attachment, `engine.broadcast(data)` gossips through
+`node.create_shared_message(data)`. This makes every engine **transport-
+agnostic**: drive it with a real `ChaincraftNode`, or with an in-memory bus in
+tests, without changing the engine.
+
+### Extending or forking a consensus protocol
+
+1. Pick the family and subclass its base.
+2. Implement `propose`, `is_decided`, `decision`; override `observe` /
+   `on_p2p` as needed; validate parameters in `__init__`.
+3. Register it with `@register_consensus` so it is selectable by name.
+
+```python
+from chaincraft.consensus import register_consensus
+from chaincraft.consensus.gossip import GossipConsensus
+from chaincraft.consensus.base import message_data
+
+@register_consensus
+class MyGossipConsensus(GossipConsensus):
+    name = "my_gossip"
+
+    def __init__(self, threshold=3, **kwargs):
+        super().__init__(**kwargs)
+        if threshold < 1:
+            from chaincraft.consensus.base import ConsensusError
+            raise ConsensusError("threshold must be >= 1")
+        self.threshold = threshold
+        self._decision = None
+
+    def propose(self, value):
+        self.broadcast({"consensus": self.name, "value": value})
+
+    def observe(self, message):
+        data = message_data(message)
+        if isinstance(data, dict) and data.get("consensus") == self.name:
+            ...  # accumulate evidence, set self._decision when satisfied
+
+    def is_decided(self): return self._decision is not None
+    def decision(self): return self._decision
+```
+
+To fork an existing engine, subclass it (or copy its module under the same
+family), override only the decision logic, and register under a new `name`.
+
+### Core engines vs. teaching toys
+
+Full, reusable engines live in `chaincraft/consensus/<family>/`. Deliberately
+simplified, single-decree **teaching** implementations stay in `examples/` so
+learners can read one self-contained file:
+
+- Core `gossip`: `AvalancheConsensus` — full DAG metastable consensus
+  (vertices, conflict sets, per-set Snowball, ancestry-gated acceptance).
+- Core `bft`: `TendermintConsensus` — deterministic propose/prevote/precommit
+  with a > 2/3 Byzantine quorum.
+- Toys in `examples/`: `Slush`, `Snowflake`, `Snowball` (binary single-decree
+  Avalanche family) and the networked `tendermint_bft.py` walkthrough.
+
 ## Examples
 
 | Protocol | Type | Path |
 |---|---|---|
 | Chatroom | Gossip (non-merkelized) | `examples/chatroom_protocol.py` |
 | Randomness Beacon | Gossip (merkelized) | `examples/randomness_beacon.py` |
-| Slush | Request-response | `examples/slush_protocol.py` |
-| Snowflake | Request-response | `examples/snowflake_protocol.py` |
-| Snowball | Request-response | `examples/snowball_protocol.py` |
-| Tendermint BFT | Gossip (non-merkelized) | `examples/tendermint_bft.py` |
+| Slush (toy) | Request-response | `examples/slush_protocol.py` |
+| Snowflake (toy) | Request-response | `examples/snowflake_protocol.py` |
+| Snowball (toy) | Request-response | `examples/snowball_protocol.py` |
+| Tendermint BFT (toy) | Gossip (non-merkelized) | `examples/tendermint_bft.py` |
+| Avalanche (full) | Core consensus engine (`gossip`) | `chaincraft/consensus/gossip/avalanche.py` |
+| Tendermint (full) | Core consensus engine (`bft`) | `chaincraft/consensus/bft/tendermint.py` |
 
 ### Gossip-path example (Chatroom)
 
