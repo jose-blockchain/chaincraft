@@ -31,6 +31,7 @@ from .core_objects import (
 from . import crypto_primitives
 from . import ledger
 from . import fees
+from . import mempool
 from .config import (
     BlockchainConfig,
     BlockchainBuilder,
@@ -61,6 +62,7 @@ __all__ = [
     "crypto_primitives",
     "ledger",
     "fees",
+    "mempool",
     "BlockchainConfig",
     "BlockchainBuilder",
     "build_blockchain",

@@ -15,12 +15,13 @@ mempool and applies them to ledger state. Wiring the engine onto a
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, List, Mapping, Optional
 
 from .fees import BlockContext, get_fee_policy
 from .fees.base import FeePolicy
 from .ledger import get_ledger_model
 from .ledger.base import LedgerModel, LedgerState
+from .mempool import MempoolPolicy, TransactionPool
 
 
 @dataclass
@@ -36,6 +37,7 @@ class BlockchainConfig:
     genesis_allocations: Mapping[str, int] = field(default_factory=dict)
     ledger_kwargs: Mapping[str, Any] = field(default_factory=dict)
     fee_kwargs: Mapping[str, Any] = field(default_factory=dict)
+    mempool_policy: Optional[MempoolPolicy] = None
 
 
 @dataclass
@@ -65,21 +67,28 @@ class Blockchain:
         self.config = config
         self.base_fee = config.initial_base_fee
         self.blocks: List[Block] = []
-        self._mempool: Dict[str, Any] = {}
+        self.mempool = TransactionPool(config.mempool_policy)
         self._last_block_tx_count = 0
 
     # -- mempool -----------------------------------------------------------
     def submit(self, tx: Any) -> bool:
-        """Add a transaction to the local mempool if its fee is acceptable."""
+        """Add a transaction to the mempool if its fee passes the fee policy.
+
+        Admission also respects the configured mempool policy (size, TTL,
+        per-sender limits, replace-by-fee).
+        """
         ctx = self._context()
         if not self.fee_policy.is_valid_fee(tx, ctx):
             return False
-        self._mempool[tx.tx_id] = tx
-        return True
+        return bool(self.mempool.add(tx))
 
     @property
     def pending(self) -> List[Any]:
-        return list(self._mempool.values())
+        return self.mempool.pending
+
+    def reinject(self, txs) -> List[str]:
+        """Re-add transactions reverted by a reorg so they are eligible again."""
+        return self.mempool.reinject(txs)
 
     # -- block production --------------------------------------------------
     def _context(self) -> BlockContext:
@@ -93,7 +102,7 @@ class Blockchain:
     def produce_block(self, miner: Optional[str] = None) -> Block:
         """Select transactions, apply them with fees, and append a block."""
         ctx = self._context()
-        selected = self.fee_policy.select_for_block(self.pending, ctx)
+        selected = self.mempool.select(self.fee_policy, ctx)
 
         charges = [self.fee_policy.effective_charge(tx, ctx) for tx in selected]
         total_burned = sum(c.burned for c in charges)
@@ -108,8 +117,7 @@ class Blockchain:
         )
 
         tx_ids = [tx.tx_id for tx in selected]
-        for tx_id in tx_ids:
-            self._mempool.pop(tx_id, None)
+        self.mempool.remove_included(tx_ids)
 
         block = Block(
             index=len(self.blocks),
