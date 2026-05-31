@@ -15,5 +15,7 @@ class BFTConsensus(ConsensusEngine):
 
 
 from .tendermint import TendermintConsensus  # noqa: E402  (registers the engine)
+from .pbft import PBFTConsensus  # noqa: E402  (registers the engine)
+from .hotstuff import HotStuffConsensus  # noqa: E402  (registers the engine)
 
-__all__ = ["BFTConsensus", "TendermintConsensus"]
+__all__ = ["BFTConsensus", "TendermintConsensus", "PBFTConsensus", "HotStuffConsensus"]

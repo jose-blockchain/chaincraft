@@ -18,6 +18,7 @@ class PoWConsensus(ConsensusEngine):
 from .chain import ForkAwareChain, ForkChoiceResult  # noqa: E402
 from .proof_of_work import ProofOfWorkConsensus  # noqa: E402  (registers engine)
 from .beacon import RandomnessBeaconConsensus  # noqa: E402  (registers engine)
+from .vdf_chain import VDFLinearWorkConsensus  # noqa: E402  (registers engine)
 
 __all__ = [
     "PoWConsensus",
@@ -25,4 +26,5 @@ __all__ = [
     "ForkChoiceResult",
     "ProofOfWorkConsensus",
     "RandomnessBeaconConsensus",
+    "VDFLinearWorkConsensus",
 ]

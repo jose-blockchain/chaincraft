@@ -366,8 +366,10 @@ config produces a working chain; each part is swappable by name.
 | Ledger model | `chaincraft.ledger` | `get_ledger_model` | `balance`, `utxo` |
 | Fee policy | `chaincraft.fees` | `get_fee_policy` | `highest_first`, `median`, `eip1559` |
 | Payload pricing | `chaincraft.fees.payload` | `get_payload_pricing` | `none`, `per_byte`, `per_compressed_byte`, `flat`, `absolute`, `total_bytes` |
-| Consensus engine | `chaincraft.consensus` | `get_consensus_engine` | `relay`, `avalanche`, `tendermint`, `pow`, `beacon`, … |
+| Consensus engine | `chaincraft.consensus` | `get_consensus_engine` | `relay`, `avalanche`, `hashgraph`, `tendermint`, `pbft`, `hotstuff`, `pow`, `beacon`, `vdf`, `nano_lattice`, `dagcoin`, … |
 | Mempool policy | `chaincraft.mempool` | (dataclass `MempoolPolicy`) | — |
+| Fork choice | `chaincraft.config` | (`BlockchainConfig.fork_choice`) | `longest_chain`, `heaviest`, `bft_finality` |
+| Decentralized protocols | `chaincraft.protocols` | — | `ChatGroup`, `TopicPubSub`, `CRDTKeyValue` |
 
 ```python
 from chaincraft import BlockchainConfig, build_blockchain
@@ -394,6 +396,13 @@ tx = Transaction(
 )
 chain.submit(tx)                     # admission via fee + payload + mempool policy
 block = chain.produce_block(miner="alice")
+
+# Optional: attach a consensus engine when wiring a node
+config = BlockchainConfig(consensus_engine="tendermint", fork_choice="bft_finality",
+                          consensus_kwargs={"validator_id": "v0",
+                                            "validators": ["v0","v1","v2","v3"]})
+builder = BlockchainBuilder(config)
+chain = builder.wire_node(node)        # builds chain + attaches engine to node
 ```
 
 Swapping the ledger or fee market is a one-line change to the config; nothing
@@ -455,6 +464,52 @@ module. Silence them per combination with `warnings.filterwarnings(...)`, or
 promote them to errors in strict environments with `warnings.simplefilter(
 "error", ...)`. Prefer surfacing all of this at startup rather than failing
 obscurely mid-run.
+
+## Randomness Beacon (0.6.0)
+
+The randomness beacon is **not** a ledger and does not require cryptography by
+default. It maintains a fork-aware chain of opaque block ids; each block yields
+a pseudorandom float via a pluggable :class:`RandomnessDerivation`.
+
+| Component | Registry | Names |
+|---|---|---|
+| Block source | `chaincraft.beacon` | `hash_chain` (default), `sequential`, `pow` |
+| Randomness derivation | `chaincraft.beacon` | `direct`, `rehash`, `timestamp_mix`, `xor_chain`, `modulo`, `height_salt` |
+
+```python
+from chaincraft.beacon import build_beacon, BeaconConfig
+
+beacon = build_beacon(block_source="hash_chain", randomness="rehash")
+beacon.append()
+print(beacon.random_float(), beacon.random_int(1, 6))
+
+# Gossip engine adapter (registered as consensus "beacon"):
+from chaincraft.consensus import get_consensus_engine
+engine = get_consensus_engine("beacon", randomness="xor_chain")
+engine.propose()
+```
+
+## Decentralized Protocols (0.6.0)
+
+Non-blockchain protocols live in `chaincraft/protocols/` with the same modular
+spirit as the blockchain layers:
+
+| Protocol | Module | Configurable knobs |
+|---|---|---|
+| ChatGroup | `chaincraft.protocols.chat` | membership: `open`, `invite`, `admin_approval` |
+| TopicPubSub | `chaincraft.protocols.pubsub` | topic subscriptions, publish payloads |
+| CRDT KV | `chaincraft.protocols.crdt` | last-write-wins merge per key |
+
+```python
+from chaincraft.protocols import ChatGroup, TopicPubSub, CRDTKeyValue
+
+group = ChatGroup(membership="open")
+pubsub = TopicPubSub()
+store = CRDTKeyValue()
+store.add_message(SharedMessage(data=store.local_put("color", "blue", writer="a")))
+```
+
+The legacy teaching example remains at `examples/chatroom_protocol.py`.
 
 ## Consensus Engines (0.6.0)
 
@@ -562,13 +617,26 @@ learners can read one self-contained file:
 
 - Core `gossip`: `AvalancheConsensus` — full DAG metastable consensus
   (vertices, conflict sets, per-set Snowball, ancestry-gated acceptance).
+- Core `gossip`: `HashgraphConsensus` — event-DAG gossip with simplified
+  virtual-voting decision; registered as `"hashgraph"`.
 - Core `bft`: `TendermintConsensus` — deterministic propose/prevote/precommit
   with a > 2/3 Byzantine quorum.
+- Core `bft`: `PBFTConsensus` — classic three-phase pre-prepare / prepare /
+  commit with a `2f+1` quorum; registered as `"pbft"`.
+- Core `bft`: `HotStuffConsensus` — pipelined prepare / pre-commit / commit
+  BFT; registered as `"hotstuff"`.
 - Core `pow`: `ProofOfWorkConsensus` — longest-valid-chain Nakamoto consensus
   built on the reusable `ForkAwareChain` helper (heaviest-chain fork choice,
   deterministic tie-break, reorg deltas) with confirmation-based finality.
-- Core `pow`: `RandomnessBeaconConsensus` — PoW chain whose buried tip hash is
-  verifiable randomness (`random_float` / `random_int`); registered as `"beacon"`.
+- Core `pow`: `RandomnessBeaconConsensus` — modular beacon chain (no ledger);
+  pluggable block sources (`hash_chain`, `sequential`, `pow`) and randomness
+  derivations (`direct`, `rehash`, `xor_chain`, …); see `chaincraft/beacon/`.
+- Core `pow`: `VDFLinearWorkConsensus` — longest-valid-chain consensus secured
+  by sequential VDF proofs (`crypto_primitives/vdf.py`); registered as `"vdf"`.
+- Core `dag`: `NanoLatticeConsensus` — block-lattice with open/send/receive
+  blocks and representative-weighted confirmation; registered as `"nano_lattice"`.
+- Core `dag`: `DAGcoinConsensus` — tangle with cumulative-weight confirmation
+  and conflict-set resolution; registered as `"dagcoin"`.
 - Toys in `examples/`: `Slush`, `Snowflake`, `Snowball` (binary single-decree
   Avalanche family), the networked `tendermint_bft.py` walkthrough, and the
   mining-loop `blockchain.py` / `randomness_beacon.py` PoW demos.

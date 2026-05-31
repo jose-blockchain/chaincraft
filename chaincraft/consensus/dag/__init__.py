@@ -13,4 +13,11 @@ class DAGConsensus(ConsensusEngine):
     category = CATEGORY_DAG
 
 
-__all__ = ["DAGConsensus"]
+from .lattice import NanoLatticeConsensus  # noqa: E402  (registers the engine)
+from .dagcoin import DAGcoinConsensus  # noqa: E402  (registers the engine)
+
+__all__ = [
+    "DAGConsensus",
+    "NanoLatticeConsensus",
+    "DAGcoinConsensus",
+]

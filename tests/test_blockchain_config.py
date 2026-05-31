@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from chaincraft.config import BlockchainConfig, build_blockchain
+from chaincraft.config import BlockchainConfig, BlockchainBuilder, build_blockchain
 from chaincraft.ledger import Transaction, UTXOTransaction, UTXOOutput
 
 
@@ -129,6 +129,24 @@ class TestConfigSwappability(unittest.TestCase):
         # Highest-first pays the sum of bids; median pays the clearing price x3.
         self.assertEqual(results["highest_first"], 18)
         self.assertEqual(results["median"], 18)  # 6 * 3 included
+
+
+class TestConsensusConfig(unittest.TestCase):
+    def test_build_consensus_engine(self):
+        cfg = BlockchainConfig(
+            consensus_engine="relay",
+            consensus_kwargs={},
+        )
+        builder = BlockchainBuilder(cfg)
+        engine = builder.build_consensus_engine()
+        self.assertEqual(engine.name, "relay")
+
+    def test_wire_node_builds_chain(self):
+        cfg = BlockchainConfig(consensus_engine="relay")
+        chain = BlockchainBuilder(cfg).wire_node(object())
+        self.assertEqual(len(chain.blocks), 0)
+        engine = BlockchainBuilder(cfg).build_consensus_engine()
+        self.assertEqual(engine.name, "relay")
 
 
 if __name__ == "__main__":

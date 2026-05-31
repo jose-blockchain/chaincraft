@@ -16,9 +16,11 @@ class GossipConsensus(ConsensusEngine):
 
 from .relay import RelayProposalConsensus  # noqa: E402  (registers the engine)
 from .avalanche import AvalancheConsensus  # noqa: E402  (registers the engine)
+from .hashgraph import HashgraphConsensus  # noqa: E402  (registers the engine)
 
 __all__ = [
     "GossipConsensus",
     "RelayProposalConsensus",
     "AvalancheConsensus",
+    "HashgraphConsensus",
 ]

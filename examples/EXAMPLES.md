@@ -135,3 +135,43 @@ A practical sequence:
 - Merkelized objects should expose stable digest-based sync semantics.
 
 This is the key Chaincraft pattern: keep protocol logic focused, let the node manage networking, storage, and concurrency.
+
+---
+
+## 0.6.0 Configuration Cookbook
+
+Swap components without editing protocol code:
+
+```python
+from chaincraft import BlockchainConfig, build_blockchain
+from chaincraft.ledger import Transaction
+
+# Default balance ledger + highest-fee-first
+chain = build_blockchain()
+
+# UTXO + EIP-1559 fee market
+from chaincraft import BlockchainConfig
+chain = build_blockchain(BlockchainConfig(
+    ledger_model="utxo",
+    fee_policy="eip1559",
+    initial_base_fee=5,
+    coinbase_reward=0,
+))
+
+# Modular randomness beacon (no ledger)
+from chaincraft.beacon import build_beacon
+beacon = build_beacon(block_source="hash_chain", randomness="rehash")
+beacon.append()
+print(beacon.random_float())
+
+# Configurable chat group (open / invite / admin_approval)
+from chaincraft.protocols import ChatGroup
+room = ChatGroup(membership="open")
+
+# Consensus engine by name
+from chaincraft.consensus import get_consensus_engine
+engine = get_consensus_engine("tendermint", validator_id="v0",
+                              validators=["v0", "v1", "v2", "v3"])
+```
+
+See `SPECS.md` for the full modular API reference.

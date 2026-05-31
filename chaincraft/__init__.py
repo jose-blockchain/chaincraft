@@ -33,6 +33,8 @@ from . import ledger
 from . import fees
 from . import mempool
 from . import consensus
+from . import beacon
+from . import protocols
 from .config import (
     BlockchainConfig,
     BlockchainBuilder,
@@ -67,6 +69,8 @@ __all__ = [
     "fees",
     "mempool",
     "consensus",
+    "beacon",
+    "protocols",
     "BlockchainConfig",
     "ConfigError",
     "ExperimentalConfigWarning",

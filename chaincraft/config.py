@@ -25,6 +25,8 @@ from .ledger import LEDGER_MODELS, get_ledger_model
 from .ledger.base import LedgerModel, LedgerState
 from .mempool import MempoolPolicy, TransactionPool
 
+FORK_CHOICES = frozenset({"longest_chain", "heaviest", "bft_finality"})
+
 
 class ConfigError(ValueError):
     """Raised when a blockchain configuration is invalid or self-contradictory.
@@ -67,6 +69,11 @@ class BlockchainConfig:
     payload_kwargs: Mapping[str, Any] = field(default_factory=dict)
     #: Reject transactions whose ``data`` exceeds this many bytes (``None`` = unlimited).
     max_payload_bytes: Optional[int] = None
+    #: Optional consensus engine name (see ``chaincraft.consensus`` registry).
+    consensus_engine: Optional[str] = None
+    consensus_kwargs: Mapping[str, Any] = field(default_factory=dict)
+    #: Fork-choice rule when pairing with a PoW/DAG consensus engine.
+    fork_choice: str = "longest_chain"
 
     def validate(self) -> "BlockchainConfig":
         """Reject impossible or self-contradictory configurations.
@@ -113,6 +120,28 @@ class BlockchainConfig:
             raise ConfigError(
                 f"initial_base_fee must be >= 0, got {self.initial_base_fee}"
             )
+        if self.fork_choice not in FORK_CHOICES:
+            raise ConfigError(
+                f"unknown fork_choice {self.fork_choice!r}; "
+                f"available: {sorted(FORK_CHOICES)}"
+            )
+        if self.consensus_engine is not None:
+            from .consensus import default_registry
+
+            if self.consensus_engine not in default_registry.available():
+                raise ConfigError(
+                    f"unknown consensus engine {self.consensus_engine!r}; "
+                    f"available: {default_registry.available()}"
+                )
+            if self.fork_choice == "bft_finality" and self.consensus_engine not in (
+                default_registry.by_category("bft")
+            ):
+                warnings.warn(
+                    f"fork_choice='bft_finality' with engine "
+                    f"{self.consensus_engine!r} is experimental (not a BFT engine)",
+                    ExperimentalConfigWarning,
+                    stacklevel=2,
+                )
         for account, amount in self.genesis_allocations.items():
             if amount < 0:
                 raise ConfigError(
@@ -305,6 +334,24 @@ class BlockchainBuilder:
         )
         state = ledger.genesis_state(self.config.genesis_allocations)
         return Blockchain(ledger, fee_policy, state, self.config)
+
+    def build_consensus_engine(self):
+        """Instantiate the configured consensus engine, if any."""
+        if self.config.consensus_engine is None:
+            return None
+        from .consensus import get_consensus_engine
+
+        return get_consensus_engine(
+            self.config.consensus_engine, **dict(self.config.consensus_kwargs)
+        )
+
+    def wire_node(self, node) -> Blockchain:
+        """Build the chain and attach a consensus engine to ``node`` when configured."""
+        chain = self.build()
+        engine = self.build_consensus_engine()
+        if engine is not None:
+            engine._attach_node(node)
+        return chain
 
 
 def build_blockchain(config: Optional[BlockchainConfig] = None) -> Blockchain:
