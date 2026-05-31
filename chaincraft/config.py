@@ -351,6 +351,7 @@ class BlockchainBuilder:
         engine = self.build_consensus_engine()
         if engine is not None:
             engine._attach_node(node)
+            setattr(node, "consensus_engine", engine)
         return chain
 
 

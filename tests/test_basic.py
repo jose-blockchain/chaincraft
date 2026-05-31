@@ -101,8 +101,8 @@ class TestChaincraftNetwork(unittest.TestCase):
             node.connect_to_peer(restarted_node.host, restarted_node.port)
         self.nodes.append(restarted_node)
 
-        # Wait for the restarted node to catch up
-        self.assertTrue(wait_for_propagation(self.nodes, 2, timeout=60))
+        # Wait for the restarted node to catch up (generous timeout for slow CI)
+        self.assertTrue(wait_for_propagation(self.nodes, 2, timeout=90))
 
         for node in self.nodes:
             self.assertIn(

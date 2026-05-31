@@ -142,11 +142,14 @@ class TestConsensusConfig(unittest.TestCase):
         self.assertEqual(engine.name, "relay")
 
     def test_wire_node_builds_chain(self):
+        class _Node:
+            pass
+
         cfg = BlockchainConfig(consensus_engine="relay")
-        chain = BlockchainBuilder(cfg).wire_node(object())
+        node = _Node()
+        chain = BlockchainBuilder(cfg).wire_node(node)
         self.assertEqual(len(chain.blocks), 0)
-        engine = BlockchainBuilder(cfg).build_consensus_engine()
-        self.assertEqual(engine.name, "relay")
+        self.assertEqual(node.consensus_engine.name, "relay")
 
 
 if __name__ == "__main__":

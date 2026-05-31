@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional
 
 from .base import BeaconBlock, BeaconError, GENESIS_HASH
 from .block_source import BlockSource, HashChainSource, get_block_source
 from .derivation import DirectHashDerivation, RandomnessDerivation, get_randomness_derivation
-
-if TYPE_CHECKING:
-    from ..consensus.pow.chain import ForkAwareChain
 
 
 class RandomnessBeacon:

@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional
 
 from chaincraft.beacon.base import MESSAGE_TYPE
 from chaincraft.beacon.config import BeaconConfig
-from chaincraft.beacon.core import RandomnessBeacon
 
 from ..base import ConsensusError, UnstableConsensusWarning, message_data
 from ..registry import register_consensus

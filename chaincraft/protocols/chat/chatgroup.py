@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 from ...shared_message import SharedMessage
 from ...shared_object import SharedObject
-from .membership import InviteMembership, MembershipPolicy, OpenMembership, get_membership_policy
+from .membership import MembershipPolicy, OpenMembership, get_membership_policy
 
 MESSAGE_TAG = "CHATGROUP"
 

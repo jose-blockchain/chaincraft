@@ -9,7 +9,7 @@ outputs derived from them.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 
 GENESIS_HASH = "0" * 64

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from ...shared_message import SharedMessage
 from ...shared_object import SharedObject

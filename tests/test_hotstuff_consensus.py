@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from chaincraft.consensus import default_registry, get_consensus_engine
+from chaincraft.consensus import default_registry
 from chaincraft.consensus.bft.hotstuff import HotStuffConsensus
 from chaincraft.shared_message import SharedMessage
 
